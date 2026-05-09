@@ -1,9 +1,6 @@
 import TaskList from '@/components/TaskList';
-import { getTasks } from '@/app/actions/taskActions';
 
-export default async function TasksPage() {
-  const allTasks = await getTasks('all_tasks');
-
+export default function TasksPage() {
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -13,7 +10,6 @@ export default async function TasksPage() {
         <TaskList 
           title="All Tasks" 
           listId="all_tasks"
-          tasks={allTasks} 
           placeholder="Add a new task..." 
         />
         <div className="glass p-6 rounded-2xl flex flex-col items-center justify-center text-center">
