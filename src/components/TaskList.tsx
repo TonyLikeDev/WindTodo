@@ -46,7 +46,7 @@ export default function TaskList({ title, initialTasks, placeholder }: { title: 
   };
 
   // Only render content after loading to prevent hydration mismatch
-  if (!isLoaded) return <GlassCard className="flex flex-col h-full min-h-[300px] animate-pulse" />;
+  if (!isLoaded) return <GlassCard className="flex flex-col h-full min-h-[300px] animate-pulse"><div /></GlassCard>;
 
   return (
     <GlassCard className="flex flex-col h-full">
