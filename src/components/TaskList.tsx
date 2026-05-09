@@ -13,7 +13,7 @@ type Task = {
   createdAt: Date;
 };
 
-export default function TaskList({ title, listId, placeholder }: { title: string, listId: string, placeholder: string }) {
+export default function TaskList({ title, listId, placeholder, bgColor }: { title: string, listId: string, placeholder: string, bgColor?: string }) {
   const [inputValue, setInputValue] = useState('');
   
   // SWR automatically handles fetching, caching, and revalidation
@@ -65,7 +65,7 @@ export default function TaskList({ title, listId, placeholder }: { title: string
   }
 
   return (
-    <GlassCard className="flex flex-col h-full transition-opacity duration-200">
+    <GlassCard className="flex flex-col h-full transition-opacity duration-200" style={bgColor ? { background: bgColor } : undefined}>
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
           {title}
