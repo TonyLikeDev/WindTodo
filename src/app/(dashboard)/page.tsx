@@ -1,6 +1,5 @@
 import PieChart from '@/components/PieChart';
 import TaskList from '@/components/TaskList';
-import ActivityGraph from '@/components/ActivityGraph';
 
 export default function Dashboard() {
   const dailyTasks = [
@@ -18,7 +17,7 @@ export default function Dashboard() {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       <PieChart />
       <TaskList 
-        title="Daily Tasks" 
+        title="Your Tasks" 
         initialTasks={dailyTasks} 
         placeholder="Add a task..." 
       />
@@ -27,7 +26,6 @@ export default function Dashboard() {
         initialTasks={activeProjects} 
         placeholder="Add a project..." 
       />
-      <ActivityGraph />
     </div>
   );
 }

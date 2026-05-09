@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import GlassCard from './GlassCard';
 
 type Task = {
@@ -11,6 +11,28 @@ type Task = {
 export default function TaskList({ title, initialTasks, placeholder }: { title: string, initialTasks: Task[], placeholder: string }) {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [inputValue, setInputValue] = useState('');
+  const [isLoaded, setIsLoaded] = useState(false);
+  const storageKey = `windtodo_tasks_${title.replace(/\s+/g, '_').toLowerCase()}`;
+
+  useEffect(() => {
+    const storedTasks = localStorage.getItem(storageKey);
+    if (storedTasks) {
+      try {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setTasks(JSON.parse(storedTasks));
+      } catch (err) {
+        console.error("Failed to parse tasks from localStorage", err);
+      }
+    }
+     
+    setIsLoaded(true);
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (isLoaded) {
+      localStorage.setItem(storageKey, JSON.stringify(tasks));
+    }
+  }, [tasks, isLoaded, storageKey]);
 
   const handleAddTask = () => {
     if (inputValue.trim()) {
@@ -22,6 +44,9 @@ export default function TaskList({ title, initialTasks, placeholder }: { title: 
   const handleRemoveTask = (id: string) => {
     setTasks(tasks.filter(task => task.id !== id));
   };
+
+  // Only render content after loading to prevent hydration mismatch
+  if (!isLoaded) return <GlassCard className="flex flex-col h-full min-h-[300px] animate-pulse" />;
 
   return (
     <GlassCard className="flex flex-col h-full">
