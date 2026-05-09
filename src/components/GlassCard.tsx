@@ -1,6 +1,11 @@
-import { ReactNode } from 'react';
+import React from 'react';
 
-export default function GlassCard({ children, className = '' }: { children: ReactNode; className?: string }) {
+interface GlassCardProps {
+  children: React.ReactNode;
+  className?: string;
+}
+
+export default function GlassCard({ children, className = '' }: GlassCardProps) {
   return (
     <div className={`glass p-6 rounded-2xl ${className}`}>
       {children}

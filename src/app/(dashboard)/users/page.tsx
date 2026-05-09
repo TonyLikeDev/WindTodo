@@ -1,10 +1,7 @@
+import { mockUsers } from '@/data/users';
+
 export default function UsersPage() {
-  const users = [
-    { name: 'Tony Stark', role: 'Pro Member', status: 'Online', avatar: 'TS' },
-    { name: 'Steve Rogers', role: 'Team Lead', status: 'Away', avatar: 'SR' },
-    { name: 'Natasha Romanoff', role: 'Admin', status: 'Online', avatar: 'NR' },
-    { name: 'Bruce Banner', role: 'Developer', status: 'Offline', avatar: 'BB' },
-  ];
+  const users = mockUsers;
 
   return (
     <div className="space-y-8">

@@ -1,80 +1,56 @@
+'use client';
+
 import GlassCard from './GlassCard';
+import { useLocalStorage } from '../hooks/useLocalStorage';
+import { Task } from '../types';
+import { predefinedTags } from '../data/tags';
 
 export default function ActivityGraph() {
+  const [tasks] = useLocalStorage<Task[]>('tasks-all', []);
+
+  const tagCounts = predefinedTags.map(tag => {
+    return {
+      tag,
+      count: tasks.filter(t => (t.tags || []).includes(tag.id)).length
+    };
+  });
+  
+  const untaggedCount = tasks.filter(t => (t.tags || []).length === 0).length;
+  const allCounts = [...tagCounts, { tag: { id: 'untagged', name: 'Untagged', color: '' }, count: untaggedCount }];
+  const maxCount = Math.max(...allCounts.map(c => c.count), 1);
+
   return (
     <GlassCard className="lg:col-span-3">
       <div className="flex items-center justify-between mb-8">
         <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
-          Weekly Productivity
+          Tasks by Label
         </h3>
         <div className="flex items-center space-x-2">
-          <span className="flex items-center space-x-1 text-xs text-gray-500">
-            <span className="w-3 h-3 bg-white/20 rounded-sm"></span>
-            <span>Previous</span>
-          </span>
-          <span className="flex items-center space-x-1 text-xs text-white">
-            <span className="w-3 h-3 bg-white rounded-sm"></span>
-            <span>Current</span>
+          <span className="text-xs text-gray-500">
+            Total Labeled Tasks: {tasks.filter(t => (t.tags || []).length > 0).length}
           </span>
         </div>
       </div>
-      <div className="h-48 flex items-end justify-between px-2 gap-4">
-        {/* Monday */}
-        <div className="flex-grow flex flex-col items-center gap-2">
-          <div className="w-full flex items-end gap-1 h-32">
-            <div className="bg-white/10 w-full h-2/3 rounded-t-sm"></div>
-            <div className="bg-white w-full h-1/2 rounded-t-sm"></div>
-          </div>
-          <span className="text-[10px] text-gray-500">MON</span>
-        </div>
-        {/* Tuesday */}
-        <div className="flex-grow flex flex-col items-center gap-2">
-          <div className="w-full flex items-end gap-1 h-32">
-            <div className="bg-white/10 w-full h-3/4 rounded-t-sm"></div>
-            <div className="bg-white w-full h-full rounded-t-sm"></div>
-          </div>
-          <span className="text-[10px] text-gray-500">TUE</span>
-        </div>
-        {/* Wednesday */}
-        <div className="flex-grow flex flex-col items-center gap-2">
-          <div className="w-full flex items-end gap-1 h-32">
-            <div className="bg-white/10 w-full h-1/2 rounded-t-sm"></div>
-            <div className="bg-white w-full h-2/3 rounded-t-sm"></div>
-          </div>
-          <span className="text-[10px] text-gray-500">WED</span>
-        </div>
-        {/* Thursday */}
-        <div className="flex-grow flex flex-col items-center gap-2">
-          <div className="w-full flex items-end gap-1 h-32">
-            <div className="bg-white/10 w-full h-full rounded-t-sm"></div>
-            <div className="bg-white w-full h-4/5 rounded-t-sm"></div>
-          </div>
-          <span className="text-[10px] text-gray-500">THU</span>
-        </div>
-        {/* Friday */}
-        <div className="flex-grow flex flex-col items-center gap-2">
-          <div className="w-full flex items-end gap-1 h-32">
-            <div className="bg-white/10 w-full h-4/5 rounded-t-sm"></div>
-            <div className="bg-white w-full h-full rounded-t-sm"></div>
-          </div>
-          <span className="text-[10px] text-gray-500">FRI</span>
-        </div>
-        {/* Saturday */}
-        <div className="flex-grow flex flex-col items-center gap-2">
-          <div className="w-full flex items-end gap-1 h-32">
-            <div className="bg-white/10 w-full h-1/3 rounded-t-sm"></div>
-            <div className="bg-white w-full h-1/4 rounded-t-sm"></div>
-          </div>
-          <span className="text-[10px] text-gray-500">SAT</span>
-        </div>
-        {/* Sunday */}
-        <div className="flex-grow flex flex-col items-center gap-2">
-          <div className="w-full flex items-end gap-1 h-32">
-            <div className="bg-white/10 w-full h-1/4 rounded-t-sm"></div>
-            <div className="bg-white w-full h-1/3 rounded-t-sm"></div>
-          </div>
-          <span className="text-[10px] text-gray-500">SUN</span>
-        </div>
+      <div className="h-48 flex items-end justify-between px-2 gap-6">
+        {allCounts.map((item) => {
+          const heightPercent = Math.round((item.count / maxCount) * 100);
+          return (
+            <div key={item.tag.id} className="flex-1 flex flex-col items-center gap-2 group">
+              <div className="w-full flex items-end justify-center h-32 relative">
+                <div 
+                  className="w-full bg-cyan-500/60 rounded-t-sm transition-all duration-700 hover:bg-cyan-400" 
+                  style={{ height: `${heightPercent}%`, minHeight: item.count > 0 ? '4px' : '0px' }}
+                ></div>
+                <div className="absolute -top-6 text-xs font-bold text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                  {item.count}
+                </div>
+              </div>
+              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider truncate w-full text-center" title={item.tag.name}>
+                {item.tag.name.substring(0, 3)}
+              </span>
+            </div>
+          );
+        })}
       </div>
     </GlassCard>
   );
