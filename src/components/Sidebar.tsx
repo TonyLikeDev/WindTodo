@@ -1,6 +1,11 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
 
 export default function Sidebar() {
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
   return (
     <aside className="sidebar-glass w-64 flex-shrink-0 flex flex-col hidden md:flex">
         <div className="p-6 border-b border-white/5">
@@ -33,8 +38,22 @@ export default function Sidebar() {
             </nav>
         </div>
         
-        <div className="mt-auto p-6">
-            <div className="glass rounded-xl p-4 flex items-center space-x-3">
+        <div className="mt-auto p-6 relative">
+            {isSettingsOpen && (
+                <div className="absolute bottom-full left-6 right-6 mb-2 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-lg overflow-hidden glass z-50">
+                    <div className="py-1">
+                        <Link href="#" className="block px-4 py-2 text-sm text-gray-300 hover:bg-white/10 transition-colors">Profile</Link>
+                        <Link href="#" className="block px-4 py-2 text-sm text-gray-300 hover:bg-white/10 transition-colors">Account Settings</Link>
+                        <Link href="#" className="block px-4 py-2 text-sm text-gray-300 hover:bg-white/10 transition-colors">Preferences</Link>
+                        <div className="border-t border-white/10 my-1"></div>
+                        <Link href="/login" className="block px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors">Logout</Link>
+                    </div>
+                </div>
+            )}
+            <div 
+              className="glass rounded-xl p-4 flex items-center space-x-3 cursor-pointer hover:bg-white/5 transition-colors"
+              onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+            >
                 <div className="w-10 h-10 rounded-full bg-gray-600 border border-white/10 overflow-hidden">
                     {/* Using standard img to bypass Next.js Image external domain config for mock avatars */}
                     <img src="https://ui-avatars.com/api/?name=Tony+Stark&background=333&color=fff" alt="User" className="w-full h-full" />
@@ -43,8 +62,8 @@ export default function Sidebar() {
                     <p className="text-sm font-medium text-white truncate">Tony Stark</p>
                     <p className="text-xs text-gray-500 truncate">Pro Member</p>
                 </div>
-                <button className="text-gray-500 hover:text-white transition-colors">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                <button className="text-gray-500 hover:text-white transition-colors" onClick={(e) => { e.stopPropagation(); setIsSettingsOpen(!isSettingsOpen); }}>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z"></path></svg>
                 </button>
             </div>
         </div>
