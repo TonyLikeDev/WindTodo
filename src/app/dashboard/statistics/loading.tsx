@@ -34,7 +34,7 @@ export default function StatisticsLoading() {
           <div className="h-48 flex items-end justify-between px-2 gap-4">
              {[1, 2, 3, 4, 5, 6, 7].map((i) => (
                <div key={i} className="flex-grow flex flex-col items-center gap-2">
-                 <div className="w-full bg-white/5 rounded-t-sm" style={{ height: `${Math.max(20, Math.random() * 100)}%` }}></div>
+                 <div className="w-full bg-white/5 rounded-t-sm" style={{ height: `${Math.max(20, (i * 17) % 100)}%` }}></div>
                </div>
              ))}
           </div>
