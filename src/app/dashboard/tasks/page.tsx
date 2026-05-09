@@ -1,15 +1,8 @@
 import TaskList from '@/components/TaskList';
+import { getTasks } from '@/app/actions/taskActions';
 
-export default function TasksPage() {
-  const allTasks = [
-    { id: '1', title: 'Morning standup meeting' },
-    { id: '2', title: 'Review pull requests' },
-    { id: '3', title: 'Update documentation' },
-    { id: '4', title: 'WindTodo V1' },
-    { id: '5', title: 'Project Phoenix' },
-    { id: '6', title: 'Design system review' },
-    { id: '7', title: 'API Integration' },
-  ];
+export default async function TasksPage() {
+  const allTasks = await getTasks('all_tasks');
 
   return (
     <div className="space-y-8">
@@ -19,7 +12,8 @@ export default function TasksPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <TaskList 
           title="All Tasks" 
-          initialTasks={allTasks} 
+          listId="all_tasks"
+          tasks={allTasks} 
           placeholder="Add a new task..." 
         />
         <div className="glass p-6 rounded-2xl flex flex-col items-center justify-center text-center">
