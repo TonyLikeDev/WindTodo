@@ -2,43 +2,68 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import useSWR from 'swr';
 import AddProjectModal from './AddProjectModal';
-import { useLocalStorageState } from '@/utils/useLocalStorageState';
+import { createProject, getProjects } from '@/app/actions/projectActions';
 
-type Project = { id: string; name: string; color: string };
-
-const STORAGE_KEY = 'windtodo:projects';
-const EMPTY: Project[] = [];
+type Project = {
+  id: string;
+  name: string;
+  color: string;
+  userId: string;
+  createdAt: Date;
+};
 
 export default function ProjectsSection() {
-  const [projects, setProjects] = useLocalStorageState<Project[]>(STORAGE_KEY, EMPTY);
+  const { data: projects = [], mutate, isLoading } = useSWR<Project[]>(
+    'projects',
+    getProjects,
+  );
   const [open, setOpen] = useState(false);
 
-  const handleCreate = (name: string, color: string) => {
-    const id = `project_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    setProjects((prev) => [...prev, { id, name, color }]);
+  const handleCreate = async (name: string, color: string) => {
     setOpen(false);
+    const optimistic: Project = {
+      id: `temp-${Date.now()}`,
+      name,
+      color,
+      userId: 'temp',
+      createdAt: new Date(),
+    };
+    mutate([...projects, optimistic], false);
+    await createProject(name, color);
+    mutate();
   };
 
   return (
     <>
-      {projects.map((p) => (
-        <Link
-          key={p.id}
-          href={`/dashboard/projects/${p.id}`}
-          className="glass rounded-2xl p-6 flex flex-col min-h-[180px] hover:bg-white/5 transition-colors group"
-          style={{ background: p.color }}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-base font-semibold text-white truncate">{p.name}</h3>
-            <svg className="w-4 h-4 text-gray-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </div>
-          <p className="text-xs text-gray-400 mb-auto">Open board</p>
-          <div className="mt-4 text-[11px] text-gray-500 uppercase tracking-wider">Project</div>
-        </Link>
-      ))}
+      {isLoading && (
+        <>
+          <div className="glass rounded-2xl min-h-[180px] animate-pulse" />
+          <div className="glass rounded-2xl min-h-[180px] animate-pulse" />
+        </>
+      )}
+
+      {!isLoading &&
+        projects.map((p) => (
+          <Link
+            key={p.id}
+            href={p.id.startsWith('temp-') ? '#' : `/projects/${p.id}`}
+            className={`glass rounded-2xl p-6 flex flex-col min-h-[180px] hover:bg-white/5 transition-colors group ${
+              p.id.startsWith('temp-') ? 'opacity-50 pointer-events-none' : ''
+            }`}
+            style={{ background: p.color }}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-base font-semibold text-white truncate">{p.name}</h3>
+              <svg className="w-4 h-4 text-gray-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+            <p className="text-xs text-gray-400 mb-auto">Open board</p>
+            <div className="mt-4 text-[11px] text-gray-500 uppercase tracking-wider">Project</div>
+          </Link>
+        ))}
 
       <button
         type="button"

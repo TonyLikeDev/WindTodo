@@ -2,6 +2,7 @@
 
 import { useActionState, Suspense } from 'react';
 import { login } from '@/app/actions/authActions';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
@@ -26,10 +27,8 @@ export default function LoginPage() {
     <main className="min-h-[100dvh] flex items-center justify-center p-4">
       <div className="glass w-full max-w-md p-6 rounded-2xl flex flex-col items-center">
         {/* Logo/Icon area from wireframe */}
-        <div className="w-14 h-14 bg-white/10 rounded-xl flex items-center justify-center mb-4 border border-white/10">
-          <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5S19.832 5.477 21 6.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
-          </svg>
+        <div className="w-14 h-14 bg-white/10 rounded-xl flex items-center justify-center mb-4 border border-white/10 overflow-hidden">
+          <Image src="/windtodo.png" alt="WindTodo" width={56} height={56} className="w-full h-full object-contain" />
         </div>
         
         <h1 className="text-xl font-bold text-white mb-5 tracking-tight">WindTodo</h1>
