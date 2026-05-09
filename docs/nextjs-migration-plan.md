@@ -16,7 +16,7 @@ Break down the monolithic HTML pages into modular, reusable React components sto
 *   **Layout Components:**
     *   `Sidebar.tsx`: The left-hand navigation menu.
     *   `TopBar.tsx`: The top header featuring search and user profile details.
-    *   `GlassCard.tsx`: A reusable wrapper component to enforce consistent glassmorphism styling across widgets.
+    *   `GlassCard.tsx`: A reusable wrapper component to enforce consistent glassmorphism styling across widg￼ets.
 *   **Feature Components:**
     *   `PieChart.tsx`: The inline SVG task distribution chart.
     *   `ActivityGraph.tsx`: The weekly productivity bar chart.
