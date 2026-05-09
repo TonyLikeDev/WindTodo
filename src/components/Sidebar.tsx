@@ -5,7 +5,7 @@ import { useState } from "react";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
 
-export default function Sidebar() {
+export default function Sidebar({ isOpen = false, onClose = () => {} }: { isOpen?: boolean, onClose?: () => void }) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const pathname = usePathname();
 
@@ -17,9 +17,9 @@ export default function Sidebar() {
   ];
 
   return (
-    <aside className="sidebar-glass w-64 flex-shrink-0 flex flex-col hidden md:flex">
-        <div className="p-6 border-b border-white/5">
-            <div className="flex items-center space-x-3 mb-10">
+    <aside className={`sidebar-glass w-64 flex-shrink-0 flex flex-col fixed md:relative z-50 h-full transition-transform duration-300 ease-in-out ${isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}>
+        <div className="p-6 border-b border-white/5 flex items-center justify-between">
+            <div className="flex items-center space-x-3">
                 <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/10">
                     <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5S19.832 5.477 21 6.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
@@ -27,29 +27,33 @@ export default function Sidebar() {
                 </div>
                 <span className="text-xl font-bold tracking-tight text-white">WindTodo</span>
             </div>
-            
-            <nav className="space-y-1">
-                {navItems.map((item) => {
-                  const isActive = pathname === item.href;
-                  return (
-                    <Link 
-                      key={item.name}
-                      href={item.href} 
-                      className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${
-                        isActive 
-                          ? "bg-white/5 text-white" 
-                          : "text-gray-400 hover:bg-white/5 hover:text-white"
-                      }`}
-                    >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          {item.icon}
-                        </svg>
-                        <span>{item.name}</span>
-                    </Link>
-                  );
-                })}
-            </nav>
+            <button className="md:hidden text-gray-400 hover:text-white" onClick={onClose}>
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
         </div>
+        
+        <nav className="space-y-1 p-6">
+            {navItems.map((item) => {
+              const isActive = pathname === item.href;
+              return (
+                <Link 
+                  key={item.name}
+                  href={item.href} 
+                  onClick={onClose}
+                  className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${
+                    isActive 
+                      ? "bg-white/5 text-white" 
+                      : "text-gray-400 hover:bg-white/5 hover:text-white"
+                  }`}
+                >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      {item.icon}
+                    </svg>
+                    <span>{item.name}</span>
+                </Link>
+              );
+            })}
+        </nav>
         
         <div className="mt-auto p-6 relative">
             {isSettingsOpen && (
