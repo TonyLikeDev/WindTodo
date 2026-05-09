@@ -1,6 +1,8 @@
+import GlassCard from './GlassCard';
+
 export default function PieChart() {
   return (
-    <div className="glass p-6 rounded-2xl flex flex-col items-center justify-center">
+    <GlassCard className="flex flex-col items-center justify-center">
       <h3 className="text-sm font-semibold text-gray-400 mb-6 uppercase tracking-wider self-start">
         Task Distribution
       </h3>
@@ -66,6 +68,6 @@ export default function PieChart() {
           <span className="text-[10px] text-gray-500">Pending</span>
         </div>
       </div>
-    </div>
+    </GlassCard>
   );
 }

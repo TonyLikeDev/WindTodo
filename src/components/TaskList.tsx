@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import GlassCard from './GlassCard';
 
 type Task = {
   id: string;
@@ -23,7 +24,7 @@ export default function TaskList({ title, initialTasks, placeholder }: { title: 
   };
 
   return (
-    <div className="glass p-6 rounded-2xl flex flex-col h-full">
+    <GlassCard className="flex flex-col h-full">
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
           {title}
@@ -65,6 +66,6 @@ export default function TaskList({ title, initialTasks, placeholder }: { title: 
           </svg>
         </button>
       </div>
-    </div>
+    </GlassCard>
   );
 }

@@ -2,9 +2,19 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { usePathname } from "next/navigation";
+import Image from "next/image";
 
 export default function Sidebar() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const pathname = usePathname();
+
+  const navItems = [
+    { name: "Dashboard", href: "/", icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path> },
+    { name: "Tasks", href: "/tasks", icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path> },
+    { name: "Statistics", href: "/statistics", icon: <><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path></> },
+    { name: "Users", href: "/users", icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 01-12 0v1zm0-11a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0z"></path> },
+  ];
 
   return (
     <aside className="sidebar-glass w-64 flex-shrink-0 flex flex-col hidden md:flex">
@@ -19,22 +29,25 @@ export default function Sidebar() {
             </div>
             
             <nav className="space-y-1">
-                <Link href="/" className="flex items-center space-x-3 px-4 py-3 rounded-lg bg-white/5 text-white">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
-                    <span>Dashboard</span>
-                </Link>
-                <Link href="#" className="flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-400 hover:bg-white/5 hover:text-white transition-all">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
-                    <span>Tasks</span>
-                </Link>
-                <Link href="#" className="flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-400 hover:bg-white/5 hover:text-white transition-all">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path></svg>
-                    <span>Statistics</span>
-                </Link>
-                <Link href="#" className="flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-400 hover:bg-white/5 hover:text-white transition-all">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 01-12 0v1zm0-11a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0z"></path></svg>
-                    <span>Users</span>
-                </Link>
+                {navItems.map((item) => {
+                  const isActive = pathname === item.href;
+                  return (
+                    <Link 
+                      key={item.name}
+                      href={item.href} 
+                      className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${
+                        isActive 
+                          ? "bg-white/5 text-white" 
+                          : "text-gray-400 hover:bg-white/5 hover:text-white"
+                      }`}
+                    >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          {item.icon}
+                        </svg>
+                        <span>{item.name}</span>
+                    </Link>
+                  );
+                })}
             </nav>
         </div>
         
@@ -54,9 +67,14 @@ export default function Sidebar() {
               className="glass rounded-xl p-4 flex items-center space-x-3 cursor-pointer hover:bg-white/5 transition-colors"
               onClick={() => setIsSettingsOpen(!isSettingsOpen)}
             >
-                <div className="w-10 h-10 rounded-full bg-gray-600 border border-white/10 overflow-hidden">
-                    {/* Using standard img to bypass Next.js Image external domain config for mock avatars */}
-                    <img src="https://ui-avatars.com/api/?name=Tony+Stark&background=333&color=fff" alt="User" className="w-full h-full" />
+                <div className="w-10 h-10 rounded-full bg-gray-600 border border-white/10 overflow-hidden relative">
+                    <Image 
+                      src="https://ui-avatars.com/api/?name=Tony+Stark&background=333&color=fff" 
+                      alt="User" 
+                      fill
+                      unoptimized
+                      className="object-cover"
+                    />
                 </div>
                 <div className="flex-grow min-w-0">
                     <p className="text-sm font-medium text-white truncate">Tony Stark</p>

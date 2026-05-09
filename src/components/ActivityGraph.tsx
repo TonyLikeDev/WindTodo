@@ -1,6 +1,8 @@
+import GlassCard from './GlassCard';
+
 export default function ActivityGraph() {
   return (
-    <div className="glass p-6 rounded-2xl lg:col-span-3">
+    <GlassCard className="lg:col-span-3">
       <div className="flex items-center justify-between mb-8">
         <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
           Weekly Productivity
@@ -74,6 +76,6 @@ export default function ActivityGraph() {
           <span className="text-[10px] text-gray-500">SUN</span>
         </div>
       </div>
-    </div>
+    </GlassCard>
   );
 }
