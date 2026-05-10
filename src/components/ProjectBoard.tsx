@@ -1,10 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useMemo, useState } from 'react';
+import { MouseEvent as ReactMouseEvent, ReactNode, useCallback, useMemo, useRef, useState } from 'react';
 import useSWR, { mutate as globalMutate } from 'swr';
-import AddProjectModal from './AddProjectModal';
-import BoardColumn from './BoardColumn';
+import BoardColumn, { DEFAULT_LIST_COLOR } from './BoardColumn';
 import { BoardDragProvider, DraggableTask } from './BoardDragContext';
 import { moveTask } from '@/app/actions/taskActions';
 import {
@@ -12,6 +11,8 @@ import {
   deleteBoardList,
   getBoardLists,
   getProjects,
+  renameBoardList,
+  updateBoardListColor,
 } from '@/app/actions/projectActions';
 
 type Project = {
@@ -41,26 +42,47 @@ export default function ProjectBoard({ projectId }: { projectId: string }) {
     `board:${projectId}`,
     () => getBoardLists(projectId),
   );
-  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<{ id: string; color: string; index: number } | null>(null);
+  const listsContainerRef = useRef<HTMLDivElement>(null);
 
   const project = useMemo(
     () => projects.find((p) => p.id === projectId) ?? null,
     [projects, projectId],
   );
 
-  const handleCreateList = async (name: string, color: string) => {
-    setOpen(false);
+  const startDraft = (index: number) => {
+    if (draft) return;
+    setDraft({
+      id: `draft-${Date.now()}`,
+      color: DEFAULT_LIST_COLOR,
+      index: Math.max(0, Math.min(index, lists.length)),
+    });
+  };
+
+  const cancelDraft = () => setDraft(null);
+
+  const commitDraft = async (name: string) => {
+    if (!draft) return;
+    const { color, index } = draft;
+    setDraft(null);
+
     const optimistic: BoardList = {
       id: `temp-${Date.now()}`,
       name,
       color,
       userId: 'temp',
       projectId,
-      position: lists.length,
+      position: index,
       createdAt: new Date(),
     };
-    mutate([...lists, optimistic], false);
-    await createBoardList(projectId, name, color);
+    const next = [
+      ...lists.slice(0, index),
+      optimistic,
+      ...lists.slice(index),
+    ].map((l, i) => ({ ...l, position: i }));
+    mutate(next, false);
+
+    await createBoardList(projectId, name, color, index);
     mutate();
   };
 
@@ -68,6 +90,46 @@ export default function ProjectBoard({ projectId }: { projectId: string }) {
     mutate(lists.filter((l) => l.id !== id), false);
     await deleteBoardList(id);
     mutate();
+  };
+
+  const handleRenameList = async (id: string, newName: string) => {
+    mutate(
+      lists.map((l) => (l.id === id ? { ...l, name: newName } : l)),
+      false,
+    );
+    await renameBoardList(id, newName);
+    mutate();
+  };
+
+  const handleChangeListColor = async (id: string, color: string) => {
+    mutate(
+      lists.map((l) => (l.id === id ? { ...l, color } : l)),
+      false,
+    );
+    await updateBoardListColor(id, color);
+    mutate();
+  };
+
+  const handleBoardDoubleClick = (e: ReactMouseEvent<HTMLDivElement>) => {
+    if (e.target !== e.currentTarget) return;
+    if (draft) return;
+    const container = listsContainerRef.current;
+    if (!container) return;
+
+    // Children: [list1, list2, ..., addAnotherListButton]. Skip the trailing
+    // button when computing the insertion index from list rects.
+    const listEls = Array.from(container.children).slice(0, lists.length);
+    const x = e.clientX;
+    let insertAt = listEls.length;
+    for (let i = 0; i < listEls.length; i++) {
+      const r = (listEls[i] as HTMLElement).getBoundingClientRect();
+      const mid = r.left + r.width / 2;
+      if (x < mid) {
+        insertAt = i;
+        break;
+      }
+    }
+    startDraft(insertAt);
   };
 
   const handleDrop = useCallback(
@@ -183,8 +245,16 @@ export default function ProjectBoard({ projectId }: { projectId: string }) {
           </h1>
         </div>
 
-        <div className="flex-1 overflow-x-auto custom-scrollbar p-4">
-          <div className="flex gap-4 items-start min-h-full">
+        <div
+          className="flex-1 overflow-x-auto custom-scrollbar p-4"
+          onDoubleClick={handleBoardDoubleClick}
+          title="Double-click empty space to add a list here"
+        >
+          <div
+            ref={listsContainerRef}
+            className="flex gap-4 items-start min-h-full"
+            onDoubleClick={handleBoardDoubleClick}
+          >
             {listsLoading && lists.length === 0 && (
               <>
                 <div className="w-72 h-72 bg-white/5 rounded-2xl animate-pulse flex-shrink-0" />
@@ -192,19 +262,44 @@ export default function ProjectBoard({ projectId }: { projectId: string }) {
               </>
             )}
 
-            {lists.map((l) => (
-              <BoardColumn
-                key={l.id}
-                listId={l.id}
-                title={l.name}
-                color={l.color}
-                onRemoveList={() => handleRemoveList(l.id)}
-              />
-            ))}
+            {(() => {
+              const draftIndex = draft?.index ?? -1;
+              const items: ReactNode[] = [];
+              for (let i = 0; i <= lists.length; i++) {
+                if (draft && i === draftIndex) {
+                  items.push(
+                    <BoardColumn
+                      key={draft.id}
+                      listId={draft.id}
+                      title=""
+                      color={draft.color}
+                      isDraft
+                      onDraftCommit={commitDraft}
+                      onDraftCancel={cancelDraft}
+                    />,
+                  );
+                }
+                if (i < lists.length) {
+                  const l = lists[i];
+                  items.push(
+                    <BoardColumn
+                      key={l.id}
+                      listId={l.id}
+                      title={l.name}
+                      color={l.color}
+                      onRemoveList={() => handleRemoveList(l.id)}
+                      onRename={(name) => handleRenameList(l.id, name)}
+                      onChangeColor={(c) => handleChangeListColor(l.id, c)}
+                    />,
+                  );
+                }
+              }
+              return items;
+            })()}
 
             <button
               type="button"
-              onClick={() => setOpen(true)}
+              onClick={() => startDraft(lists.length)}
               className="w-72 flex-shrink-0 rounded-2xl border border-dashed border-white/20 bg-white/5 hover:bg-white/10 transition-colors px-4 py-3 flex items-center gap-2 text-sm text-white"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -216,15 +311,6 @@ export default function ProjectBoard({ projectId }: { projectId: string }) {
         </div>
       </div>
 
-      <AddProjectModal
-        open={open}
-        onClose={() => setOpen(false)}
-        onCreate={handleCreateList}
-        title="New List"
-        nameLabel="List name"
-        namePlaceholder="e.g. To do"
-        ctaLabel="Add list"
-      />
     </div>
     </BoardDragProvider>
   );
