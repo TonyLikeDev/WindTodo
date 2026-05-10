@@ -60,7 +60,12 @@ export async function getBoardLists(projectId: string) {
   })
 }
 
-export async function createBoardList(projectId: string, name: string, color: string) {
+export async function createBoardList(
+  projectId: string,
+  name: string,
+  color: string,
+  targetIndex?: number,
+) {
   const userId = await requireUserId()
 
   const project = await prisma.project.findFirst({
@@ -69,23 +74,75 @@ export async function createBoardList(projectId: string, name: string, color: st
   })
   if (!project) throw new Error('Project not found')
 
-  const last = await prisma.boardList.findFirst({
-    where: { projectId, userId },
-    orderBy: { position: 'desc' },
-    select: { position: true },
+  const list = await prisma.$transaction(async (tx) => {
+    const existing = await tx.boardList.findMany({
+      where: { projectId, userId },
+      orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
+      select: { id: true },
+    })
+
+    const insertAt =
+      targetIndex == null
+        ? existing.length
+        : Math.max(0, Math.min(targetIndex, existing.length))
+
+    const created = await tx.boardList.create({
+      data: {
+        name,
+        color,
+        userId,
+        projectId,
+        position: insertAt,
+      },
+    })
+
+    const next = [
+      ...existing.slice(0, insertAt).map((l) => l.id),
+      created.id,
+      ...existing.slice(insertAt).map((l) => l.id),
+    ]
+
+    await Promise.all(
+      next.map((id, i) =>
+        tx.boardList.update({ where: { id }, data: { position: i } }),
+      ),
+    )
+
+    return created
   })
 
-  const list = await prisma.boardList.create({
-    data: {
-      name,
-      color,
-      userId,
-      projectId,
-      position: (last?.position ?? -1) + 1,
-    },
-  })
   revalidatePath(`/projects/${projectId}`)
   return list
+}
+
+export async function updateBoardListColor(listId: string, color: string) {
+  const userId = await requireUserId()
+  const list = await prisma.boardList.findFirst({
+    where: { id: listId, userId },
+    select: { projectId: true },
+  })
+  if (!list) return
+  await prisma.boardList.updateMany({
+    where: { id: listId, userId },
+    data: { color },
+  })
+  revalidatePath(`/projects/${list.projectId}`)
+}
+
+export async function renameBoardList(listId: string, name: string) {
+  const userId = await requireUserId()
+  const trimmed = name.trim()
+  if (!trimmed) return
+  const list = await prisma.boardList.findFirst({
+    where: { id: listId, userId },
+    select: { projectId: true },
+  })
+  if (!list) return
+  await prisma.boardList.updateMany({
+    where: { id: listId, userId },
+    data: { name: trimmed },
+  })
+  revalidatePath(`/projects/${list.projectId}`)
 }
 
 export async function deleteBoardList(listId: string) {
