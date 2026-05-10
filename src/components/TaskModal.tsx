@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { Task, ChecklistItem, User } from '../types';
 import { predefinedTags } from '../data/tags';
 import { mockUsers } from '../data/users';
+import { X, AlignLeft, CheckSquare } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 interface TaskModalProps {
   task: Task;
@@ -62,8 +64,21 @@ export default function TaskModal({ task, onClose, onUpdateTask }: TaskModalProp
   const progressPercent = totalChecklistCount === 0 ? 0 : Math.round((completedChecklistCount / totalChecklistCount) * 100);
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+        className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl relative z-10"
+      >
         
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-white/5">
@@ -74,7 +89,7 @@ export default function TaskModal({ task, onClose, onUpdateTask }: TaskModalProp
             className="text-xl font-bold bg-transparent border-none text-white focus:outline-none focus:ring-1 focus:ring-cyan-500/50 rounded px-2 py-1 w-3/4"
           />
           <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            <X className="w-6 h-6" />
           </button>
         </div>
 
@@ -114,13 +129,27 @@ export default function TaskModal({ task, onClose, onUpdateTask }: TaskModalProp
             </div>
 
             <div>
-              <div className="text-xs text-gray-500 uppercase font-semibold mb-2">Time</div>
+              <div className="text-xs text-gray-500 uppercase font-semibold mb-2">Priority</div>
+              <div className="flex bg-white/5 border border-white/10 rounded-lg p-0.5">
+                {(['low', 'medium', 'high', 'urgent'] as const).map(p => (
+                  <button
+                    key={p}
+                    onClick={() => setEditedTask({ ...editedTask, priority: p })}
+                    className={`px-3 py-1 text-xs rounded-md capitalize transition-colors ${editedTask.priority === p ? 'bg-white/10 text-white font-semibold' : 'text-gray-400 hover:text-gray-200'}`}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="text-xs text-gray-500 uppercase font-semibold mb-2">Due Date</div>
               <input 
-                type="text" 
-                value={editedTask.time || ''} 
-                onChange={(e) => setEditedTask({ ...editedTask, time: e.target.value })}
-                placeholder="No time set"
-                className="px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-sm text-gray-300 focus:outline-none focus:border-cyan-500/50"
+                type="datetime-local" 
+                value={editedTask.dueDate || editedTask.time || ''} 
+                onChange={(e) => setEditedTask({ ...editedTask, dueDate: e.target.value, time: e.target.value })}
+                className="px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-sm text-gray-300 focus:outline-none focus:border-cyan-500/50 [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert-[0.6]"
               />
             </div>
           </div>
@@ -147,7 +176,7 @@ export default function TaskModal({ task, onClose, onUpdateTask }: TaskModalProp
           {/* Description */}
           <div>
             <div className="text-xs text-gray-500 uppercase font-semibold mb-3 flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h7"></path></svg>
+              <AlignLeft className="w-4 h-4" />
               Description
             </div>
             <textarea 
@@ -162,7 +191,7 @@ export default function TaskModal({ task, onClose, onUpdateTask }: TaskModalProp
           <div>
             <div className="text-xs text-gray-500 uppercase font-semibold mb-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <CheckSquare className="w-4 h-4" />
                 Checklist
               </div>
               {totalChecklistCount > 0 && <span className="text-cyan-400 font-mono">{progressPercent}%</span>}
@@ -185,7 +214,7 @@ export default function TaskModal({ task, onClose, onUpdateTask }: TaskModalProp
                   />
                   <span className={`text-sm flex-grow ${item.completed ? 'line-through text-gray-500' : 'text-gray-300'}`}>{item.text}</span>
                   <button onClick={() => removeChecklist(item.id)} className="text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
               ))}
@@ -211,7 +240,7 @@ export default function TaskModal({ task, onClose, onUpdateTask }: TaskModalProp
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:bg-white/5 transition-colors">Cancel</button>
           <button onClick={handleSave} className="px-4 py-2 rounded-lg text-sm font-medium bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/30 transition-colors shadow-[0_0_15px_rgba(6,182,212,0.15)]">Save Changes</button>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

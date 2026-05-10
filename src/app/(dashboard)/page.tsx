@@ -1,6 +1,5 @@
-import PieChart from '@/components/PieChart';
 import TaskList from '@/components/TaskList';
-import ActivityGraph from '@/components/ActivityGraph';
+import WelcomeWidget from '@/components/WelcomeWidget';
 
 export default function Dashboard() {
   const dailyTasks = [
@@ -15,21 +14,23 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-      <PieChart />
-      <TaskList 
-        listId="dashboard-daily"
-        title="Daily Tasks" 
-        initialTasks={dailyTasks} 
-        placeholder="Add a task..." 
-      />
-      <TaskList 
-        listId="dashboard-projects"
-        title="Active Projects" 
-        initialTasks={activeProjects} 
-        placeholder="Add a project..." 
-      />
-      <ActivityGraph />
+    <div className="flex flex-col h-full space-y-6">
+      <WelcomeWidget />
+      
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 flex-grow">
+        <TaskList 
+          listId="dashboard-daily"
+          title="Daily Tasks" 
+          initialTasks={dailyTasks} 
+          placeholder="Add a daily task..." 
+        />
+        <TaskList 
+          listId="dashboard-projects"
+          title="Active Projects" 
+          initialTasks={activeProjects} 
+          placeholder="Add a new project or milestone..." 
+        />
+      </div>
     </div>
   );
 }

@@ -54,7 +54,7 @@ export default function TasksPage() {
           <div className="h-[600px]">
             <TaskList 
               listId="tasks-all"
-              title="All Tasks" 
+              title="Global Tasks" 
               initialTasks={allTasks} 
               placeholder="Add a new task..." 
             />
@@ -67,7 +67,7 @@ export default function TasksPage() {
           </div>
         </div>
       ) : (
-        <KanbanBoard listId="tasks-all" initialTasks={allTasks} />
+        <KanbanBoard isGlobal />
       )}
     </div>
   );

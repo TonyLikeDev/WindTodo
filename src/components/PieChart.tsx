@@ -1,16 +1,32 @@
 'use client';
 
 import GlassCard from './GlassCard';
-import { useLocalStorage } from '../hooks/useLocalStorage';
-import { Task } from '../types';
+import { useTaskStore } from '../store/useTaskStore';
+import { useEffect, useState } from 'react';
 
 export default function PieChart() {
-  const [tasks] = useLocalStorage<Task[]>('tasks-all', []);
+  const [mounted, setMounted] = useState(false);
+  const lists = useTaskStore((state) => state.lists);
 
-  const total = tasks.length;
-  const done = tasks.filter(t => t.status === 'done').length;
-  const inProgress = tasks.filter(t => t.status === 'in-progress').length;
-  const todo = tasks.filter(t => t.status === 'todo' || !t.status).length;
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return <GlassCard className="h-64 animate-pulse"></GlassCard>;
+  }
+
+  let total = 0;
+  let done = 0;
+  let inProgress = 0;
+  let todo = 0;
+
+  Object.values(lists).forEach(taskList => {
+    total += taskList.length;
+    done += taskList.filter(t => t.status === 'done').length;
+    inProgress += taskList.filter(t => t.status === 'in-progress').length;
+    todo += taskList.filter(t => t.status === 'todo' || !t.status).length;
+  });
 
   const donePercent = total === 0 ? 0 : (done / total) * 100;
   const inProgressPercent = total === 0 ? 0 : (inProgress / total) * 100;
@@ -45,6 +61,7 @@ export default function PieChart() {
             strokeDasharray={`${donePercent} 100`}
             strokeDashoffset="0"
             strokeLinecap="round"
+            pathLength="100"
             style={{ filter: 'drop-shadow(0 0 3px rgba(0,255,204,0.6))', transition: 'stroke-dasharray 1s ease-out, stroke-dashoffset 1s ease-out' }}
           ></circle>
           
@@ -59,6 +76,7 @@ export default function PieChart() {
             strokeDasharray={`${inProgressPercent} 100`}
             strokeDashoffset={`-${donePercent}`}
             strokeLinecap="round"
+            pathLength="100"
             style={{ filter: 'drop-shadow(0 0 3px rgba(255,238,0,0.6))', transition: 'stroke-dasharray 1s ease-out, stroke-dashoffset 1s ease-out' }}
           ></circle>
           
@@ -73,6 +91,7 @@ export default function PieChart() {
             strokeDasharray={`${todoPercent} 100`}
             strokeDashoffset={`-${donePercent + inProgressPercent}`}
             strokeLinecap="round"
+            pathLength="100"
             style={{ filter: 'drop-shadow(0 0 3px rgba(255,0,85,0.6))', transition: 'stroke-dasharray 1s ease-out, stroke-dashoffset 1s ease-out' }}
           ></circle>
         </svg>
