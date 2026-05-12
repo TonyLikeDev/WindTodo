@@ -3,17 +3,28 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Task } from '../types';
-import { predefinedTags } from '../data/tags';
-import { X, Clock, CheckSquare, AlertCircle, ArrowUp, ArrowRight, ArrowDown } from 'lucide-react';
+import { useTaskStore } from '../store/useTaskStore';
+import { X, Clock, CheckSquare, AlertCircle, ArrowUp, ArrowRight, ArrowDown, Check, Trash2 } from 'lucide-react';
 
 interface SortableTaskProps {
   task: Task;
   overdue: boolean;
   onTaskClick: (task: Task) => void;
   onRemoveTask: (taskId: string) => void;
+  onUpdateStatus?: (taskId: string, newStatus: 'todo' | 'in-progress' | 'done') => void;
 }
 
-export default function SortableTask({ task, overdue, onTaskClick, onRemoveTask }: SortableTaskProps) {
+function PriorityIcon({ priority }: { priority?: Task['priority'] }) {
+  switch(priority) {
+    case 'urgent': return <AlertCircle className="w-3 h-3 text-red-500" />;
+    case 'high': return <ArrowUp className="w-3 h-3 text-orange-400" />;
+    case 'medium': return <ArrowRight className="w-3 h-3 text-gray-400" />;
+    case 'low': return <ArrowDown className="w-3 h-3 text-blue-400" />;
+    default: return null;
+  }
+}
+
+export default function SortableTask({ task, overdue, onTaskClick, onRemoveTask, onUpdateStatus }: SortableTaskProps) {
   const {
     attributes,
     listeners,
@@ -29,19 +40,10 @@ export default function SortableTask({ task, overdue, onTaskClick, onRemoveTask 
     opacity: isDragging ? 0.4 : 1,
   };
 
-  const taskTags = predefinedTags.filter(tag => (task.tags || []).includes(tag.id));
+  const storeTags = useTaskStore(state => state.tags);
+  const taskTags = storeTags.filter(tag => (task.tags || []).includes(tag.id));
   
   const displayTime = task.dueDate || task.time;
-
-  const PriorityIcon = () => {
-    switch(task.priority) {
-      case 'urgent': return <AlertCircle className="w-3 h-3 text-red-500" />;
-      case 'high': return <ArrowUp className="w-3 h-3 text-orange-400" />;
-      case 'medium': return <ArrowRight className="w-3 h-3 text-gray-400" />;
-      case 'low': return <ArrowDown className="w-3 h-3 text-blue-400" />;
-      default: return null;
-    }
-  };
 
   return (
     <div 
@@ -60,13 +62,26 @@ export default function SortableTask({ task, overdue, onTaskClick, onRemoveTask 
           {task.title}
         </span>
         <div className="flex items-center gap-1">
-          <PriorityIcon />
-          <button 
-            onClick={(e) => { e.stopPropagation(); onRemoveTask(task.id); }}
-            className="text-gray-600 hover:text-red-400 transition-colors shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 ml-1"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <PriorityIcon priority={task.priority} />
+          
+          <div className="flex items-center gap-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            {task.status !== 'done' && onUpdateStatus && (
+              <button 
+                onClick={(e) => { e.stopPropagation(); onUpdateStatus(task.id, 'done'); }}
+                className="p-1 rounded bg-white/5 text-green-400 hover:bg-green-400/20 transition-colors"
+                title="Mark as done"
+              >
+                <Check className="w-3.5 h-3.5" />
+              </button>
+            )}
+            <button 
+              onClick={(e) => { e.stopPropagation(); onRemoveTask(task.id); }}
+              className="p-1 rounded bg-white/5 text-gray-400 hover:bg-red-400/20 hover:text-red-400 transition-colors"
+              title="Delete task"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       </div>
       
@@ -91,8 +106,12 @@ export default function SortableTask({ task, overdue, onTaskClick, onRemoveTask 
             {displayTime && (
               <span className={`flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded border ${overdue ? 'bg-red-950/40 text-red-400/90 border-red-500/30' : 'bg-white/5 text-gray-400 border-white/10'}`}>
                 {overdue && (
-                  <Clock className="w-3 h-3" />
+                  <>
+                    <Clock className="w-3 h-3" />
+                    <span className="font-bold tracking-wider">OVERDUE</span>
+                  </>
                 )}
+                {!overdue && <Clock className="w-3 h-3" />}
                 {displayTime.replace('T', ' ')}
               </span>
             )}

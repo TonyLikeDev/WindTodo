@@ -1,5 +1,11 @@
 export type TaskStatus = 'todo' | 'in-progress' | 'done';
 
+export type Tag = {
+  id: string;
+  name: string;
+  color: string;
+};
+
 export type User = {
   id: string;
   name: string;
@@ -16,6 +22,8 @@ export type ChecklistItem = {
 
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
 
+export type TaskRecurrence = 'none' | 'daily' | 'weekly' | 'monthly';
+
 export type Task = {
   id: string;
   title: string;
@@ -28,5 +36,6 @@ export type Task = {
   description?: string;
   tags?: string[]; // Array of tag IDs
   checklist?: ChecklistItem[];
+  recurrence?: TaskRecurrence;
   _listName?: string; // Metadata for unified views
 };

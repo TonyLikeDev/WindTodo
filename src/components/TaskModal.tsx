@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Task, ChecklistItem, User } from '../types';
-import { predefinedTags } from '../data/tags';
+import { Task, ChecklistItem, TaskRecurrence } from '../types';
+import { useTaskStore } from '../store/useTaskStore';
 import { mockUsers } from '../data/users';
+import TagManagerModal from './TagManagerModal';
 import { X, AlignLeft, CheckSquare } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -17,6 +18,8 @@ export default function TaskModal({ task, onClose, onUpdateTask }: TaskModalProp
   const [editedTask, setEditedTask] = useState<Task>(task);
   const [newChecklistItem, setNewChecklistItem] = useState('');
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isTagManagerOpen, setIsTagManagerOpen] = useState(false);
+  const tags = useTaskStore(state => state.tags);
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setEditedTask({ ...editedTask, title: e.target.value });
@@ -86,7 +89,7 @@ export default function TaskModal({ task, onClose, onUpdateTask }: TaskModalProp
             type="text" 
             value={editedTask.title} 
             onChange={handleTitleChange}
-            className="text-xl font-bold bg-transparent border-none text-white focus:outline-none focus:ring-1 focus:ring-cyan-500/50 rounded px-2 py-1 w-3/4"
+            className="text-xl font-bold bg-transparent border-none text-white focus:outline-none focus:ring-1 focus:ring-accent-500/50 rounded px-2 py-1 w-3/4"
           />
           <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors">
             <X className="w-6 h-6" />
@@ -149,16 +152,33 @@ export default function TaskModal({ task, onClose, onUpdateTask }: TaskModalProp
                 type="datetime-local" 
                 value={editedTask.dueDate || editedTask.time || ''} 
                 onChange={(e) => setEditedTask({ ...editedTask, dueDate: e.target.value, time: e.target.value })}
-                className="px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-sm text-gray-300 focus:outline-none focus:border-cyan-500/50 [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert-[0.6]"
+                className="px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-sm text-gray-300 focus:outline-none focus:border-accent-500/50 [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert-[0.6]"
               />
+            </div>
+
+            <div>
+              <div className="text-xs text-gray-500 uppercase font-semibold mb-2">Repeat</div>
+              <select
+                value={editedTask.recurrence || 'none'}
+                onChange={(e) => setEditedTask({ ...editedTask, recurrence: e.target.value as TaskRecurrence })}
+                className="px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-sm text-gray-300 focus:outline-none focus:border-accent-500/50"
+              >
+                <option value="none">None</option>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+              </select>
             </div>
           </div>
 
           {/* Tags */}
           <div>
-            <div className="text-xs text-gray-500 uppercase font-semibold mb-3">Labels / Tags</div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-xs text-gray-500 uppercase font-semibold">Labels / Tags</div>
+              <button onClick={() => setIsTagManagerOpen(true)} className="text-xs text-accent-400 hover:text-accent-300">Manage Tags</button>
+            </div>
             <div className="flex flex-wrap gap-2">
-              {predefinedTags.map(tag => {
+              {tags.map(tag => {
                 const isActive = (editedTask.tags || []).includes(tag.id);
                 return (
                   <button 
@@ -183,7 +203,7 @@ export default function TaskModal({ task, onClose, onUpdateTask }: TaskModalProp
               value={editedTask.description || ''} 
               onChange={handleDescriptionChange}
               placeholder="Add a more detailed description..."
-              className="w-full h-32 bg-white/5 border border-white/10 rounded-xl p-3 text-sm text-gray-300 focus:outline-none focus:border-cyan-500/50 custom-scrollbar resize-none"
+              className="w-full h-32 bg-white/5 border border-white/10 rounded-xl p-3 text-sm text-gray-300 focus:outline-none focus:border-accent-500/50 custom-scrollbar resize-none"
             />
           </div>
 
@@ -194,12 +214,12 @@ export default function TaskModal({ task, onClose, onUpdateTask }: TaskModalProp
                 <CheckSquare className="w-4 h-4" />
                 Checklist
               </div>
-              {totalChecklistCount > 0 && <span className="text-cyan-400 font-mono">{progressPercent}%</span>}
+              {totalChecklistCount > 0 && <span className="text-accent-400 font-mono">{progressPercent}%</span>}
             </div>
             
             {totalChecklistCount > 0 && (
               <div className="h-1.5 w-full bg-white/5 rounded-full mb-4 overflow-hidden">
-                <div className="h-full bg-cyan-500 transition-all duration-300" style={{ width: `${progressPercent}%` }}></div>
+                <div className="h-full bg-accent-500 transition-all duration-300" style={{ width: `${progressPercent}%` }}></div>
               </div>
             )}
 
@@ -210,7 +230,7 @@ export default function TaskModal({ task, onClose, onUpdateTask }: TaskModalProp
                     type="checkbox" 
                     checked={item.completed} 
                     onChange={() => toggleChecklist(item.id)}
-                    className="mt-1 bg-white/5 border-white/20 rounded focus:ring-cyan-500/50 text-cyan-500"
+                    className="mt-1 bg-white/5 border-white/20 rounded focus:ring-accent-500/50 text-accent-500"
                   />
                   <span className={`text-sm flex-grow ${item.completed ? 'line-through text-gray-500' : 'text-gray-300'}`}>{item.text}</span>
                   <button onClick={() => removeChecklist(item.id)} className="text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -227,7 +247,7 @@ export default function TaskModal({ task, onClose, onUpdateTask }: TaskModalProp
                 onChange={(e) => setNewChecklistItem(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleAddChecklist(); }}
                 placeholder="Add an item..."
-                className="flex-grow bg-transparent border-b border-white/10 px-2 py-1 text-sm text-gray-300 focus:outline-none focus:border-cyan-500/50"
+                className="flex-grow bg-transparent border-b border-white/10 px-2 py-1 text-sm text-gray-300 focus:outline-none focus:border-accent-500/50"
               />
               <button onClick={handleAddChecklist} className="px-3 py-1 bg-white/5 hover:bg-white/10 rounded border border-white/10 text-xs font-medium transition-colors">Add</button>
             </div>
@@ -238,9 +258,13 @@ export default function TaskModal({ task, onClose, onUpdateTask }: TaskModalProp
         {/* Footer */}
         <div className="p-4 border-t border-white/5 flex justify-end gap-3 bg-black/20">
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:bg-white/5 transition-colors">Cancel</button>
-          <button onClick={handleSave} className="px-4 py-2 rounded-lg text-sm font-medium bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/30 transition-colors shadow-[0_0_15px_rgba(6,182,212,0.15)]">Save Changes</button>
+          <button onClick={handleSave} className="px-4 py-2 rounded-lg text-sm font-medium bg-accent-500/20 text-accent-400 border border-accent-500/30 hover:bg-accent-500/30 transition-colors shadow-[0_0_15px_rgba(6,182,212,0.15)]">Save Changes</button>
         </div>
       </motion.div>
+      
+      {isTagManagerOpen && (
+        <TagManagerModal onClose={() => setIsTagManagerOpen(false)} />
+      )}
     </div>
   );
 }

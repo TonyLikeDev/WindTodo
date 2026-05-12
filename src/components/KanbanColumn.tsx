@@ -15,9 +15,10 @@ interface KanbanColumnProps {
   onRemoveTask: (taskId: string) => void;
   onTaskClick: (task: Task) => void;
   isOverdue: (timeStr?: string) => boolean;
+  onUpdateStatus?: (taskId: string, newStatus: 'todo' | 'in-progress' | 'done') => void;
 }
 
-export default function KanbanColumn({ title, status, tasks, onRemoveTask, onTaskClick, isOverdue }: KanbanColumnProps) {
+export default function KanbanColumn({ title, status, tasks, onRemoveTask, onTaskClick, isOverdue, onUpdateStatus }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: status,
   });
@@ -25,14 +26,14 @@ export default function KanbanColumn({ title, status, tasks, onRemoveTask, onTas
   // Color mappings based on status for the column header
   const statusColors = {
     'todo': 'text-gray-300 border-gray-600',
-    'in-progress': 'text-cyan-400 border-cyan-500/50',
+    'in-progress': 'text-accent-400 border-accent-500/50',
     'done': 'text-green-400 border-green-500/50'
   };
 
   return (
     <div 
       ref={setNodeRef}
-      className={`flex flex-col bg-white/5 border rounded-2xl p-4 h-full min-h-[500px] transition-colors ${isOver ? 'border-cyan-500/50 bg-white/10' : 'border-white/5'}`}
+      className={`flex flex-col bg-white/5 border rounded-2xl p-4 h-full min-h-[500px] transition-colors ${isOver ? 'border-accent-500/50 bg-white/10' : 'border-white/5'}`}
     >
       <div className={`flex items-center justify-between mb-4 pb-2 border-b ${statusColors[status]}`}>
         <h3 className="font-semibold uppercase tracking-wider text-sm">
@@ -52,6 +53,7 @@ export default function KanbanColumn({ title, status, tasks, onRemoveTask, onTas
               overdue={isOverdue(task.time) && status !== 'done'}
               onTaskClick={onTaskClick}
               onRemoveTask={onRemoveTask}
+              onUpdateStatus={onUpdateStatus}
             />
           ))}
         </SortableContext>

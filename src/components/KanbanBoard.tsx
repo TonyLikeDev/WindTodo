@@ -6,6 +6,7 @@ import { Task, TaskStatus } from '../types';
 import KanbanColumn from './KanbanColumn';
 import GlassCard from './GlassCard';
 import TaskModal from './TaskModal';
+import { isTaskOverdue } from '../utils/dateUtils';
 import { AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import {
@@ -82,6 +83,14 @@ export default function KanbanBoard({ listId, initialTasks, isGlobal = false }: 
       setTasks(tasks.map(t => t.id === updatedTask.id ? updatedTask : t));
     }
     toast.success(`Task "${updatedTask.title}" saved`);
+  };
+
+  const handleUpdateStatus = (taskId: string, newStatus: TaskStatus) => {
+    if (isGlobal) {
+      globalUpdateTask(taskId, { status: newStatus });
+    } else {
+      setTasks(tasks.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+    }
   };
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -169,26 +178,6 @@ export default function KanbanBoard({ listId, initialTasks, isGlobal = false }: 
     toast('Task deleted');
   };
 
-  const isOverdue = (timeStr?: string) => {
-    if (!timeStr) return false;
-    
-    let dateToCompare = new Date();
-    const now = new Date();
-    
-    if (timeStr.includes('-') && timeStr.includes(':')) {
-      dateToCompare = new Date(timeStr.replace(' ', 'T'));
-    } else if (timeStr.includes('-')) {
-      dateToCompare = new Date(`${timeStr}T23:59:59`);
-    } else if (timeStr.includes(':')) {
-      const today = now.toISOString().split('T')[0];
-      dateToCompare = new Date(`${today}T${timeStr}:00`);
-    } else {
-      return false; 
-    }
-    
-    return dateToCompare < now;
-  };
-
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPriority, setFilterPriority] = useState<string>('all');
 
@@ -222,12 +211,12 @@ export default function KanbanBoard({ listId, initialTasks, isGlobal = false }: 
               placeholder="Search tasks..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-black/30 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-cyan-500/50"
+              className="bg-black/30 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-accent-500/50"
             />
             <select 
               value={filterPriority}
               onChange={(e) => setFilterPriority(e.target.value)}
-              className="bg-black/30 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-cyan-500/50 capitalize"
+              className="bg-black/30 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-accent-500/50 capitalize"
             >
               <option value="all">All Priorities</option>
               <option value="urgent">Urgent</option>
@@ -245,7 +234,8 @@ export default function KanbanBoard({ listId, initialTasks, isGlobal = false }: 
             tasks={todoTasks} 
             onRemoveTask={handleRemoveTask}
             onTaskClick={setSelectedTaskForModal}
-            isOverdue={(timeStr) => isMounted ? isOverdue(timeStr) : false}
+            isOverdue={(timeStr) => isMounted ? isTaskOverdue(timeStr) : false}
+            onUpdateStatus={handleUpdateStatus}
           />
           <KanbanColumn 
             title="In Progress" 
@@ -253,7 +243,8 @@ export default function KanbanBoard({ listId, initialTasks, isGlobal = false }: 
             tasks={inProgressTasks} 
             onRemoveTask={handleRemoveTask}
             onTaskClick={setSelectedTaskForModal}
-            isOverdue={(timeStr) => isMounted ? isOverdue(timeStr) : false}
+            isOverdue={(timeStr) => isMounted ? isTaskOverdue(timeStr) : false}
+            onUpdateStatus={handleUpdateStatus}
           />
           <KanbanColumn 
             title="Done" 
@@ -261,7 +252,8 @@ export default function KanbanBoard({ listId, initialTasks, isGlobal = false }: 
             tasks={doneTasks} 
             onRemoveTask={handleRemoveTask}
             onTaskClick={setSelectedTaskForModal}
-            isOverdue={(timeStr) => isMounted ? isOverdue(timeStr) : false}
+            isOverdue={(timeStr) => isMounted ? isTaskOverdue(timeStr) : false}
+            onUpdateStatus={handleUpdateStatus}
           />
         </div>
         <AnimatePresence>

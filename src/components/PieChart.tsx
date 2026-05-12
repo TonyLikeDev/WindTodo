@@ -6,131 +6,91 @@ import { useEffect, useState } from 'react';
 
 export default function PieChart() {
   const [mounted, setMounted] = useState(false);
-  const lists = useTaskStore((state) => state.lists);
+  const lists = useTaskStore(state => state.lists);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   if (!mounted) {
-    return <GlassCard className="h-64 animate-pulse"></GlassCard>;
+    return <GlassCard className="h-64 animate-pulse" />;
   }
 
-  let total = 0;
-  let done = 0;
-  let inProgress = 0;
-  let todo = 0;
-
-  Object.values(lists).forEach(taskList => {
-    total += taskList.length;
-    done += taskList.filter(t => t.status === 'done').length;
-    inProgress += taskList.filter(t => t.status === 'in-progress').length;
-    todo += taskList.filter(t => t.status === 'todo' || !t.status).length;
-  });
+  const allTasks = Object.values(lists).flat();
+  const total = allTasks.length;
+  const done = allTasks.filter(t => t.status === 'done').length;
+  const inProgress = allTasks.filter(t => t.status === 'in-progress').length;
+  const todo = allTasks.filter(t => t.status === 'todo' || !t.status).length;
 
   const donePercent = total === 0 ? 0 : (done / total) * 100;
   const inProgressPercent = total === 0 ? 0 : (inProgress / total) * 100;
   const todoPercent = total === 0 ? 0 : (todo / total) * 100;
 
+  const SEGMENTS = [
+    { label: 'Done', count: done, percent: donePercent, color: '#00ffcc', shadowColor: 'rgba(0,255,204,0.6)', offset: 0 },
+    { label: 'In Progress', count: inProgress, percent: inProgressPercent, color: '#ffee00', shadowColor: 'rgba(255,238,0,0.6)', offset: donePercent },
+    { label: 'Pending', count: todo, percent: todoPercent, color: '#ff0055', shadowColor: 'rgba(255,0,85,0.6)', offset: donePercent + inProgressPercent },
+  ];
+
   return (
-    <GlassCard className="flex flex-col items-center justify-center">
+    <GlassCard className="flex flex-col items-center">
       <h3 className="text-sm font-semibold text-gray-400 mb-6 uppercase tracking-wider self-start">
         Task Distribution
       </h3>
-      <div className="relative w-48 h-48">
-        {/* Added overflow-visible to prevent the square clipping bug */}
+
+      <div className="relative w-44 h-44 shrink-0">
         <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90 overflow-visible">
-          {/* Background Circle */}
-          <circle
-            cx="18"
-            cy="18"
-            r="16"
-            fill="transparent"
-            stroke="rgba(255,255,255,0.05)"
-            strokeWidth="4"
-          ></circle>
-          
-          {/* Green (Done) Segment */}
-          <circle
-            cx="18"
-            cy="18"
-            r="16"
-            fill="transparent"
-            stroke="#00ffcc"
-            strokeWidth="4"
-            strokeDasharray={`${donePercent} 100`}
-            strokeDashoffset="0"
-            strokeLinecap="round"
-            pathLength="100"
-            style={{ filter: 'drop-shadow(0 0 3px rgba(0,255,204,0.6))', transition: 'stroke-dasharray 1s ease-out, stroke-dashoffset 1s ease-out' }}
-          ></circle>
-          
-          {/* Yellow (In Progress) Segment */}
-          <circle
-            cx="18"
-            cy="18"
-            r="16"
-            fill="transparent"
-            stroke="#ffee00"
-            strokeWidth="4"
-            strokeDasharray={`${inProgressPercent} 100`}
-            strokeDashoffset={`-${donePercent}`}
-            strokeLinecap="round"
-            pathLength="100"
-            style={{ filter: 'drop-shadow(0 0 3px rgba(255,238,0,0.6))', transition: 'stroke-dasharray 1s ease-out, stroke-dashoffset 1s ease-out' }}
-          ></circle>
-          
-          {/* Red (Pending) Segment */}
-          <circle
-            cx="18"
-            cy="18"
-            r="16"
-            fill="transparent"
-            stroke="#ff0055"
-            strokeWidth="4"
-            strokeDasharray={`${todoPercent} 100`}
-            strokeDashoffset={`-${donePercent + inProgressPercent}`}
-            strokeLinecap="round"
-            pathLength="100"
-            style={{ filter: 'drop-shadow(0 0 3px rgba(255,0,85,0.6))', transition: 'stroke-dasharray 1s ease-out, stroke-dashoffset 1s ease-out' }}
-          ></circle>
+          {/* Background */}
+          <circle cx="18" cy="18" r="16" fill="transparent" stroke="rgba(255,255,255,0.05)" strokeWidth="4" />
+          {/* Segments */}
+          {SEGMENTS.map(seg => (
+            <circle
+              key={seg.label}
+              cx="18" cy="18" r="16"
+              fill="transparent"
+              stroke={seg.color}
+              strokeWidth="4"
+              strokeDasharray={`${seg.percent} 100`}
+              strokeDashoffset={`-${seg.offset}`}
+              strokeLinecap="round"
+              pathLength="100"
+              style={{
+                filter: `drop-shadow(0 0 3px ${seg.shadowColor})`,
+                transition: 'stroke-dasharray 1s ease-out, stroke-dashoffset 1s ease-out',
+              }}
+            />
+          ))}
         </svg>
-        
         <div className="absolute inset-0 flex items-center justify-center flex-col">
-          <span 
-            className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-br from-white to-gray-400"
-            style={{ filter: 'drop-shadow(0 0 4px rgba(255,255,255,0.15))' }}
-          >
+          <span className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-br from-white to-gray-400">
             {Math.round(donePercent)}%
           </span>
-          <span className="text-[10px] text-gray-400 uppercase font-bold tracking-widest mt-1">
-            Complete
-          </span>
+          <span className="text-[10px] text-gray-400 uppercase font-bold tracking-widest mt-1">Complete</span>
         </div>
       </div>
-      
-      <div className="mt-10 grid grid-cols-3 gap-4 w-full">
-        <div className="text-center flex flex-col items-center">
-          <div 
-            className="w-3 h-3 rounded-full mb-2 bg-[#00ffcc]"
-            style={{ boxShadow: '0 0 6px rgba(0,255,204,0.5)' }}
-          ></div>
-          <span className="text-[11px] font-medium text-gray-300">Done</span>
-        </div>
-        <div className="text-center flex flex-col items-center">
-          <div 
-            className="w-3 h-3 rounded-full mb-2 bg-[#ffee00]"
-            style={{ boxShadow: '0 0 6px rgba(255,238,0,0.5)' }}
-          ></div>
-          <span className="text-[11px] font-medium text-gray-300">In Progress</span>
-        </div>
-        <div className="text-center flex flex-col items-center">
-          <div 
-            className="w-3 h-3 rounded-full mb-2 bg-[#ff0055]"
-            style={{ boxShadow: '0 0 6px rgba(255,0,85,0.5)' }}
-          ></div>
-          <span className="text-[11px] font-medium text-gray-300">Pending</span>
-        </div>
+
+      {/* Legend with counts */}
+      <div className="mt-8 w-full space-y-2.5">
+        {SEGMENTS.map(seg => (
+          <div key={seg.label} className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-2">
+              <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: seg.color, boxShadow: `0 0 6px ${seg.shadowColor}` }} />
+              <span className="text-sm text-gray-300">{seg.label}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="h-1 w-16 bg-white/5 rounded-full overflow-hidden">
+                <div className="h-full rounded-full" style={{ width: `${seg.percent}%`, backgroundColor: seg.color }} />
+              </div>
+              <span className="text-xs font-mono text-gray-400 w-12 text-right">
+                {seg.count} <span className="text-gray-600">({Math.round(seg.percent)}%)</span>
+              </span>
+            </div>
+          </div>
+        ))}
+
+        {total === 0 && (
+          <p className="text-center text-gray-600 text-sm mt-4">No tasks yet</p>
+        )}
       </div>
     </GlassCard>
   );

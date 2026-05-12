@@ -1,5 +1,6 @@
 import TaskList from '@/components/TaskList';
 import WelcomeWidget from '@/components/WelcomeWidget';
+import DailyProgressCard from '@/components/DailyProgressCard';
 
 export default function Dashboard() {
   const dailyTasks = [
@@ -16,19 +17,20 @@ export default function Dashboard() {
   return (
     <div className="flex flex-col h-full space-y-6">
       <WelcomeWidget />
-      
+      <DailyProgressCard />
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 flex-grow">
-        <TaskList 
+        <TaskList
           listId="dashboard-daily"
-          title="Daily Tasks" 
-          initialTasks={dailyTasks} 
-          placeholder="Add a daily task..." 
+          title="Daily Tasks"
+          initialTasks={dailyTasks}
+          placeholder="Add a daily task..."
         />
-        <TaskList 
+        <TaskList
           listId="dashboard-projects"
-          title="Active Projects" 
-          initialTasks={activeProjects} 
-          placeholder="Add a new project or milestone..." 
+          title="Active Projects"
+          initialTasks={activeProjects}
+          placeholder="Add a new project or milestone..."
         />
       </div>
     </div>

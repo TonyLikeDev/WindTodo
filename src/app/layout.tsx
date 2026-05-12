@@ -18,6 +18,9 @@ export const metadata: Metadata = {
   description: "A monochrome glassmorphism task manager",
 };
 
+import ThemeProvider from '@/components/ThemeProvider';
+import NotificationManager from '@/components/NotificationManager';
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -30,8 +33,11 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="text-gray-300 min-h-screen" suppressHydrationWarning>
-        {children}
-        <Toaster theme="dark" position="bottom-right" toastOptions={{ style: { background: '#111', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' } }} />
+        <ThemeProvider>
+          <NotificationManager />
+          {children}
+          <Toaster theme="dark" position="bottom-right" toastOptions={{ style: { background: '#111', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' } }} />
+        </ThemeProvider>
       </body>
     </html>
   );

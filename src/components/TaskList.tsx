@@ -11,6 +11,7 @@ import { Task, User } from '../types';
 import { mockUsers } from '../data/users';
 import { predefinedTags } from '../data/tags';
 import TaskModal from './TaskModal';
+import { isTaskOverdue } from '../utils/dateUtils';
 
 export default function TaskList({ listId, title, initialTasks, placeholder }: { listId: string, title: string, initialTasks: Task[], placeholder: string }) {
   const [tasks, setTasks] = useTaskBoard(listId, initialTasks);
@@ -63,26 +64,6 @@ export default function TaskList({ listId, title, initialTasks, placeholder }: {
     });
   };
 
-  const isOverdue = (timeStr?: string) => {
-    if (!timeStr) return false;
-    
-    let dateToCompare = new Date();
-    const now = new Date();
-    
-    if (timeStr.includes('-') && timeStr.includes(':')) {
-      dateToCompare = new Date(timeStr.replace(' ', 'T'));
-    } else if (timeStr.includes('-')) {
-      dateToCompare = new Date(`${timeStr}T23:59:59`);
-    } else if (timeStr.includes(':')) {
-      const today = now.toISOString().split('T')[0];
-      dateToCompare = new Date(`${today}T${timeStr}:00`);
-    } else {
-      return false; 
-    }
-    
-    return dateToCompare < now;
-  };
-
   return (
     <GlassCard className="flex flex-col h-full">
       <div className="flex items-center justify-between mb-6">
@@ -96,7 +77,7 @@ export default function TaskList({ listId, title, initialTasks, placeholder }: {
       <div className="flex-grow space-y-3 mb-6 overflow-y-auto max-h-64 custom-scrollbar">
         <AnimatePresence initial={false}>
         {tasks.map(task => {
-          const overdue = isMounted ? isOverdue(task.time) : false;
+          const overdue = isMounted ? isTaskOverdue(task.time) : false;
           const taskTags = predefinedTags.filter(tag => (task.tags || []).includes(tag.id));
           return (
           <motion.div 
@@ -111,7 +92,7 @@ export default function TaskList({ listId, title, initialTasks, placeholder }: {
               <span className={`text-sm ${overdue ? 'text-red-200' : 'text-gray-200'}`}>{task.title}</span>
               <div className="flex items-center gap-2">
                 {task.time && (
-                  <span className={`flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded border ${overdue ? 'bg-red-950/40 text-red-400/90 border-red-500/30' : 'bg-black/40 text-cyan-400/80 border-cyan-500/20'}`}>
+                  <span className={`flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded border ${overdue ? 'bg-red-950/40 text-red-400/90 border-red-500/30' : 'bg-black/40 text-accent-400/80 border-accent-500/20'}`}>
                     {overdue && (
                       <Clock className="w-3 h-3" />
                     )}

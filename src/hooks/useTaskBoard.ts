@@ -9,9 +9,10 @@ export function useTaskBoard(listId: string, initialTasks: Task[] = []) {
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    setIsMounted(true);
     initializeList(listId, initialTasks);
-  }, [listId, initialTasks, initializeList]);
+    setIsMounted(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listId]);
 
   // Before hydration, return the initialTasks so SSR perfectly matches initial client render.
   // After hydration, return the store's lists[listId] if it exists, otherwise initialTasks.

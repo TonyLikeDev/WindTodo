@@ -1,11 +1,18 @@
+"use client";
+
 import Sidebar from "@/components/Sidebar";
 import TopBar from "@/components/TopBar";
+import SearchPalette from "@/components/SearchPalette";
+import { useTaskStore } from "@/store/useTaskStore";
 
 export default function DashboardLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const isSearchOpen = useTaskStore(state => state.isSearchOpen);
+  const setSearchOpen = useTaskStore(state => state.setSearchOpen);
+
   return (
     <div className="flex h-screen overflow-hidden w-full">
       <Sidebar />
@@ -15,6 +22,7 @@ export default function DashboardLayout({
           {children}
         </div>
       </main>
+      <SearchPalette isOpen={isSearchOpen} onClose={() => setSearchOpen(false)} />
     </div>
   );
 }

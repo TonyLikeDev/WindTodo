@@ -4,37 +4,33 @@ import { useEffect, useState } from 'react';
 import GlassCard from './GlassCard';
 import { useTaskBoard } from '../hooks/useTaskBoard';
 import { CheckCircle2, Clock, AlertCircle } from 'lucide-react';
+import { isTaskOverdue } from '../utils/dateUtils';
 
 export default function WelcomeWidget() {
   const [tasks] = useTaskBoard('dashboard-daily', []);
   const [mounted, setMounted] = useState(false);
+  const [greeting, setGreeting] = useState({ text: 'Good morning', icon: '☀️' });
 
   useEffect(() => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) {
+      setGreeting({ text: 'Good morning', icon: '☀️' });
+    } else if (hour >= 12 && hour < 14) {
+      setGreeting({ text: 'Good lunch', icon: '🍱' });
+    } else if (hour >= 14 && hour < 18) {
+      setGreeting({ text: 'Good afternoon', icon: '🌤️' });
+    } else if (hour >= 18 && hour < 22) {
+      setGreeting({ text: 'Good evening', icon: '🌙' });
+    } else {
+      setGreeting({ text: 'Good night', icon: '😴' });
+    }
     setMounted(true);
   }, []);
 
   const total = tasks.length;
   const done = tasks.filter(t => t.status === 'done').length;
   
-  // Calculate overdue tasks
-  const isOverdue = (timeStr?: string) => {
-    if (!timeStr) return false;
-    let dateToCompare = new Date();
-    const now = new Date();
-    if (timeStr.includes('-') && timeStr.includes(':')) {
-      dateToCompare = new Date(timeStr.replace(' ', 'T'));
-    } else if (timeStr.includes('-')) {
-      dateToCompare = new Date(`${timeStr}T23:59:59`);
-    } else if (timeStr.includes(':')) {
-      const today = now.toISOString().split('T')[0];
-      dateToCompare = new Date(`${today}T${timeStr}:00`);
-    } else {
-      return false; 
-    }
-    return dateToCompare < now;
-  };
-
-  const overdue = tasks.filter(t => t.status !== 'done' && isOverdue(t.time)).length;
+  const overdue = tasks.filter(t => t.status !== 'done' && isTaskOverdue(t.time)).length;
   const pending = total - done - overdue;
 
   if (!mounted) return null;
@@ -42,12 +38,14 @@ export default function WelcomeWidget() {
   return (
     <GlassCard className="mb-8 relative overflow-hidden">
       {/* Decorative background element */}
-      <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+      <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-accent-500/10 rounded-full blur-3xl pointer-events-none"></div>
       
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-bold text-white tracking-tight mb-2">Good morning! ☀️</h1>
-          <p className="text-gray-400">Here's a quick overview of your day.</p>
+          <h1 className="text-3xl font-bold text-white tracking-tight mb-2">
+            {greeting.text}! {greeting.icon}
+          </h1>
+          <p className="text-gray-400">Here&apos;s a quick overview of your day.</p>
         </div>
         
         <div className="flex flex-wrap items-center gap-4">

@@ -1,8 +1,49 @@
 @import "tailwindcss";
 
+@theme {
+  --color-accent-300: var(--accent-300);
+  --color-accent-400: var(--accent-400);
+  --color-accent-500: var(--accent-500);
+}
+
 :root {
   --background: #121212;
   --foreground: #ededed;
+  
+  /* Default Theme: Cyan */
+  --accent-300: #67e8f9; /* cyan-300 */
+  --accent-400: #22d3ee; /* cyan-400 */
+  --accent-500: #06b6d4; /* cyan-500 */
+}
+
+:root[data-theme="purple"] {
+  --accent-300: #d8b4fe; /* purple-300 */
+  --accent-400: #c084fc; /* purple-400 */
+  --accent-500: #a855f7; /* purple-500 */
+}
+
+:root[data-theme="green"] {
+  --accent-300: #86efac; /* green-300 */
+  --accent-400: #4ade80; /* green-400 */
+  --accent-500: #22c55e; /* green-500 */
+}
+
+:root[data-theme="red"] {
+  --accent-300: #fca5a5; /* red-300 */
+  --accent-400: #f87171; /* red-400 */
+  --accent-500: #ef4444; /* red-500 */
+}
+
+:root[data-theme="orange"] {
+  --accent-300: #fdba74; /* orange-300 */
+  --accent-400: #fb923c; /* orange-400 */
+  --accent-500: #f97316; /* orange-500 */
+}
+
+:root[data-theme="pink"] {
+  --accent-300: #f9a8d4; /* pink-300 */
+  --accent-400: #f472b6; /* pink-400 */
+  --accent-500: #ec4899; /* pink-500 */
 }
 
 body {
