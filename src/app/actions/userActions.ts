@@ -14,13 +14,13 @@ export async function syncUser() {
     where: { id: user.id },
     update: {
       email: user.email!,
-      name: user.user_metadata?.full_name || user.user_metadata?.name || null,
+      name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || null,
       avatarUrl: user.user_metadata?.avatar_url || null,
     },
     create: {
       id: user.id,
       email: user.email!,
-      name: user.user_metadata?.full_name || user.user_metadata?.name || null,
+      name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || null,
       avatarUrl: user.user_metadata?.avatar_url || null,
     },
   });
@@ -30,6 +30,14 @@ export async function getAllUsers() {
   return await prisma.user.findMany({
     orderBy: { name: 'asc' },
   });
+}
+
+export async function getProjectMembers(projectId: string) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    include: { members: true },
+  });
+  return project?.members || [];
 }
 
 export async function addMemberToProject(projectId: string, userId: string) {

@@ -51,7 +51,8 @@ function RingProgress({ pct, color, size = 80 }: { pct: number; color: string; s
   );
 }
 
-function MemberCard({ u, rank }: { u: any; rank: number }) {
+// ─── Member card ────────────────────────────────────────────────────────────────
+function MemberCard({ u, rank, totalProjectTasks }: { u: any; rank: number; totalProjectTasks: number }) {
   const avatarBg = AVATAR_PALETTE[(rank - 1) % AVATAR_PALETTE.length];
   const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null;
 
@@ -80,6 +81,7 @@ function MemberCard({ u, rank }: { u: any; rank: number }) {
           <span className="absolute text-[10px] font-bold text-white rotate-90">{u.completionPct}%</span>
         </div>
       </div>
+
       <div className="grid grid-cols-3 gap-2">
         <div className="flex flex-col items-center p-2 rounded-lg bg-zinc-800/50">
           <span className="text-gray-500 text-[9px] font-bold uppercase tracking-wider mb-0.5">To Do</span>
@@ -94,6 +96,7 @@ function MemberCard({ u, rank }: { u: any; rank: number }) {
           <span className="text-green-300 text-base font-bold">{u.completed}</span>
         </div>
       </div>
+
       {u.total > 0 && (
         <div>
           <div className="flex justify-between text-[10px] text-gray-500 mb-1.5">
@@ -101,9 +104,24 @@ function MemberCard({ u, rank }: { u: any; rank: number }) {
             <span className="text-white font-semibold">{u.contributionPct}% of project</span>
           </div>
           <div className="h-2 rounded-full overflow-hidden bg-white/5 flex gap-0.5">
-            {u.completed > 0 && <div className="h-full bg-green-500" style={{ width: `${(u.completed / u.total) * 100}%` }} />}
-            {u.inProgress > 0 && <div className="h-full bg-blue-500" style={{ width: `${(u.inProgress / u.total) * 100}%` }} />}
-            {u.todo > 0 && <div className="h-full bg-zinc-600" style={{ width: `${(u.todo / u.total) * 100}%` }} />}
+            {u.completed > 0 && (
+              <div
+                className="h-full rounded-l-full bg-green-500 transition-all duration-700"
+                style={{ width: `${(u.completed / u.total) * 100}%` }}
+              />
+            )}
+            {u.inProgress > 0 && (
+              <div
+                className="h-full bg-blue-500 transition-all duration-700"
+                style={{ width: `${(u.inProgress / u.total) * 100}%` }}
+              />
+            )}
+            {u.todo > 0 && (
+              <div
+                className="h-full rounded-r-full bg-zinc-600 transition-all duration-700"
+                style={{ width: `${(u.todo / u.total) * 100}%` }}
+              />
+            )}
           </div>
         </div>
       )}
@@ -123,7 +141,10 @@ export default function StatsDashboard() {
   useEffect(() => {
     setIsMounted(true);
     async function init() {
-      const [overallData, projectsData] = await Promise.all([getOverallStats(), getProjects()]);
+      const [overallData, projectsData] = await Promise.all([
+        getOverallStats(),
+        getProjects()
+      ]);
       setOverall(overallData);
       setProjects(projectsData);
       if (projectsData.length > 0) setSelectedProjectId(projectsData[0].id);
@@ -149,35 +170,40 @@ export default function StatsDashboard() {
     );
   }
 
-  const overallPct = overall?.totalTasks > 0 ? Math.round((overall.completedTasks / overall.totalTasks) * 100) : 0;
+  const overallPct = overall?.totalTasks > 0
+    ? Math.round((overall.completedTasks / overall.totalTasks) * 100)
+    : 0;
+
   const pieData = overall ? [
-    { name: 'Done', value: overall.completedTasks, fill: STATUS_COLORS.done },
+    { name: 'Done',        value: overall.completedTasks,  fill: STATUS_COLORS.done },
     { name: 'In Progress', value: overall.inProgressTasks, fill: STATUS_COLORS.inProgress },
-    { name: 'To Do', value: overall.todoTasks, fill: STATUS_COLORS.todo },
+    { name: 'To Do',       value: overall.todoTasks,       fill: STATUS_COLORS.todo },
   ].filter(d => d.value > 0) : [];
 
   const projectPieData = projectStats ? [
-    { name: 'Done', value: projectStats.completedTasks, fill: STATUS_COLORS.done },
+    { name: 'Done',        value: projectStats.completedTasks,  fill: STATUS_COLORS.done },
     { name: 'In Progress', value: projectStats.inProgressTasks, fill: STATUS_COLORS.inProgress },
-    { name: 'To Do', value: projectStats.todoTasks, fill: STATUS_COLORS.todo },
+    { name: 'To Do',       value: projectStats.todoTasks,       fill: STATUS_COLORS.todo },
   ].filter(d => d.value > 0) : [];
+
+  const barData = projectStats?.userStats?.filter((u: any) => u.total > 0) ?? [];
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Projects" value={overall?.totalProjects ?? 0} icon={<Layers className="w-5 h-5" />} />
-        <StatCard title="To Do" value={overall?.todoTasks ?? 0} icon={<AlertCircle className="w-5 h-5" />} />
-        <StatCard title="In Progress" value={overall?.inProgressTasks ?? 0} icon={<Clock className="w-5 h-5" />} />
-        <StatCard title="Completed" value={overall?.completedTasks ?? 0} icon={<CheckCircle className="w-5 h-5" />} sub={`${overallPct}% rate`} />
+        <StatCard title="Projects" value={overall?.totalProjects ?? 0} icon={<Layers className="w-5 h-5" />} accent="white" />
+        <StatCard title="To Do" value={overall?.todoTasks ?? 0} icon={<AlertCircle className="w-5 h-5" />} accent="gray" />
+        <StatCard title="In Progress" value={overall?.inProgressTasks ?? 0} icon={<Clock className="w-5 h-5" />} accent="blue" />
+        <StatCard title="Completed" value={overall?.completedTasks ?? 0} icon={<CheckCircle className="w-5 h-5" />} accent="green" sub={`${overallPct}% success rate`} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <GlassCard>
+        <GlassCard className="flex flex-col">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Overall</h3>
+            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Overall Tasks</h3>
             <PieChartIcon className="w-4 h-4 text-gray-600" />
           </div>
-          <div className="h-48 flex items-center justify-center">
+          <div className="h-48 flex items-center justify-center flex-1">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie data={pieData} innerRadius={40} outerRadius={55} dataKey="value" paddingAngle={2}>
@@ -189,27 +215,34 @@ export default function StatsDashboard() {
           </div>
         </GlassCard>
 
-        <GlassCard className="lg:col-span-2">
+        <GlassCard className="lg:col-span-2 flex flex-col">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Project</h3>
-              <select value={selectedProjectId} onChange={e => setSelectedProjectId(e.target.value)} className="bg-black/40 border border-white/10 rounded-lg text-xs py-1 px-2 text-white">
+              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Project Breakdown</h3>
+              <select
+                value={selectedProjectId}
+                onChange={e => setSelectedProjectId(e.target.value)}
+                className="bg-black/50 border border-white/10 rounded-lg text-xs py-1 px-2 text-white"
+              >
                 {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </div>
             <Target className="w-4 h-4 text-gray-600" />
           </div>
-          <div className="h-48 flex items-center justify-center">
-            {loadingProject ? <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-white/30" /> : (
+
+          <div className="h-48 flex items-center justify-center flex-1">
+            {loadingProject ? (
+              <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-white/30" />
+            ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={projectStats?.userStats?.filter((u: any) => u.total > 0) ?? []}>
+                <BarChart data={barData} margin={{ top: 0, right: 8, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" vertical={false} />
                   <XAxis dataKey="name" stroke="#555" fontSize={10} tickLine={false} axisLine={false} />
                   <YAxis stroke="#555" fontSize={10} tickLine={false} axisLine={false} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="completed" stackId="a" fill={STATUS_COLORS.done} />
-                  <Bar dataKey="inProgress" stackId="a" fill={STATUS_COLORS.inProgress} />
-                  <Bar dataKey="todo" stackId="a" fill={STATUS_COLORS.todo} />
+                  <Bar dataKey="completed" stackId="a" fill={STATUS_COLORS.done} name="Done" />
+                  <Bar dataKey="inProgress" stackId="a" fill={STATUS_COLORS.inProgress} name="In Progress" />
+                  <Bar dataKey="todo" stackId="a" fill={STATUS_COLORS.todo} name="To Do" />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -219,19 +252,25 @@ export default function StatsDashboard() {
 
       {projectStats && (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {projectStats.userStats.map((u: any, i: number) => <MemberCard key={u.id} u={u} rank={i + 1} />)}
+          {projectStats.userStats.map((u: any, i: number) => (
+            <MemberCard key={u.id} u={u} rank={i + 1} totalProjectTasks={projectStats.totalTasks} />
+          ))}
         </div>
       )}
     </div>
   );
 }
 
-function StatCard({ title, value, icon, sub }: { title: string; value: string | number; icon: React.ReactNode; sub?: string }) {
+const ACCENT: Record<string, string> = { white: 'border-white/10', gray: 'border-zinc-700/30', blue: 'border-blue-500/20', green: 'border-green-500/20' };
+const ACCENT_BG: Record<string, string> = { white: 'bg-white/5', gray: 'bg-zinc-700/10', blue: 'bg-blue-500/10', green: 'bg-green-500/10' };
+const ACCENT_ICON: Record<string, string> = { white: 'text-gray-300', gray: 'text-gray-500', blue: 'text-blue-400', green: 'text-green-400' };
+
+function StatCard({ title, value, icon, accent = 'white', sub }: { title: string; value: string | number; icon: React.ReactNode; accent?: string; sub?: string }) {
   return (
-    <div className="glass rounded-2xl p-5 border border-white/5 bg-white/5 flex items-center gap-4">
-      <div className="p-3 rounded-xl bg-white/5 text-gray-400">{icon}</div>
+    <div className={`glass rounded-2xl p-5 border ${ACCENT[accent]} ${ACCENT_BG[accent]} flex items-center gap-4`}>
+      <div className={`p-3 rounded-xl bg-white/5 ${ACCENT_ICON[accent]}`}>{icon}</div>
       <div>
-        <p className="text-[10px] font-bold text-gray-500 uppercase mb-0.5">{title}</p>
+        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-0.5">{title}</p>
         <p className="text-2xl font-black text-white">{value}</p>
         {sub && <p className="text-[10px] text-gray-600 mt-0.5">{sub}</p>}
       </div>

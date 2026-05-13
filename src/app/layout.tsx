@@ -27,10 +27,15 @@ export default function RootLayout({
       lang="en"
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
+<<<<<<< HEAD
       <body className="text-gray-300 min-h-screen" suppressHydrationWarning>
         {children}
       </body>
+=======
+      <body className="text-gray-300 min-h-screen" suppressHydrationWarning>{children}</body>
+>>>>>>> 31-make-changes-in-statistic
     </html>
   );
 }
