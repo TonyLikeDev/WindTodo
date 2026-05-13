@@ -3,8 +3,9 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import useSWR from 'swr';
+import { Trash2 } from 'lucide-react';
 import AddProjectModal from './AddProjectModal';
-import { createProject, getProjects } from '@/app/actions/projectActions';
+import { createProject, getProjects, deleteProject } from '@/app/actions/projectActions';
 
 type Project = {
   id: string;
@@ -18,6 +19,10 @@ export default function ProjectsSection() {
   const { data: projects = [], mutate, isLoading } = useSWR<Project[]>(
     'projects',
     getProjects,
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 10000,
+    }
   );
   const [open, setOpen] = useState(false);
 
@@ -35,6 +40,17 @@ export default function ProjectsSection() {
     mutate();
   };
 
+  const handleDelete = async (e: React.MouseEvent, projectId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (confirm('Are you sure you want to delete this project? All lists and tasks will be permanently removed.')) {
+      mutate(projects.filter(p => p.id !== projectId), false);
+      await deleteProject(projectId);
+      mutate();
+    }
+  };
+
   return (
     <>
       {isLoading && (
@@ -49,17 +65,26 @@ export default function ProjectsSection() {
           <Link
             key={p.id}
             href={p.id.startsWith('temp-') ? '#' : `/projects/${p.id}`}
-            className={`glass rounded-2xl p-6 flex flex-col min-h-[180px] hover:bg-white/5 transition-colors group ${
+            className={`glass rounded-2xl p-6 flex flex-col min-h-[180px] hover:bg-white/5 transition-colors group relative ${
               p.id.startsWith('temp-') ? 'opacity-50 pointer-events-none' : ''
             }`}
             style={{ background: p.color }}
           >
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-base font-semibold text-white truncate">{p.name}</h3>
+              <h3 className="text-base font-semibold text-white truncate pr-8">{p.name}</h3>
               <svg className="w-4 h-4 text-gray-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </div>
+            
+            <button
+              onClick={(e) => handleDelete(e, p.id)}
+              className="absolute top-6 right-12 p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg opacity-0 group-hover:opacity-100 transition-all z-10"
+              title="Delete Project"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+
             <p className="text-xs text-gray-400 mb-auto">Open board</p>
             <div className="mt-4 text-[11px] text-gray-500 uppercase tracking-wider">Project</div>
           </Link>

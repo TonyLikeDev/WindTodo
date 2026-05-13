@@ -1,34 +1,69 @@
 'use server'
 
-import { PrismaClient } from '@prisma/client'
+import prisma from '@/lib/prisma'
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
-
-const prisma = new PrismaClient()
+import { syncUser } from './userActions'
 
 async function requireUserId() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await syncUser()
   if (!user) throw new Error('Unauthorized')
   return user.id
 }
 
 export async function getProjects() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await syncUser()
   if (!user) return []
 
   return prisma.project.findMany({
-    where: { userId: user.id },
+    where: {
+      OR: [
+        { userId: user.id },
+        { members: { some: { id: user.id } } }
+      ]
+    },
+    include: {
+      members: true,
+      _count: {
+        select: { lists: true }
+      }
+    },
     orderBy: { createdAt: 'asc' },
   })
 }
 
 export async function createProject(name: string, color: string) {
   const userId = await requireUserId()
+
+  // Create project with creator as first member
   const project = await prisma.project.create({
-    data: { name, color, userId },
+    data: { 
+      name, 
+      color, 
+      userId,
+      members: {
+        connect: { id: userId }
+      }
+    },
   })
+
+  // Auto-create the 3 default workflow columns
+  const DEFAULT_COLUMNS = [
+    { name: 'To Do',       color: 'rgba(100, 116, 139, 0.15)', position: 0 },
+    { name: 'In Progress', color: 'rgba(59, 130, 246, 0.15)',  position: 1 },
+    { name: 'Done',        color: 'rgba(34, 197, 94, 0.15)',   position: 2 },
+  ]
+
+  await prisma.boardList.createMany({
+    data: DEFAULT_COLUMNS.map((col) => ({
+      name:      col.name,
+      color:     col.color,
+      userId,
+      projectId: project.id,
+      position:  col.position,
+    })),
+  })
+
   revalidatePath('/dashboard')
   return project
 }
@@ -50,12 +85,25 @@ export async function deleteProject(projectId: string) {
 }
 
 export async function getBoardLists(projectId: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await syncUser()
   if (!user) return []
 
+  // Check user is member or creator of this project
+  const project = await prisma.project.findFirst({
+    where: {
+      id: projectId,
+      OR: [
+        { userId: user.id },
+        { members: { some: { id: user.id } } },
+      ],
+    },
+    select: { id: true },
+  })
+  if (!project) return []
+
+  // Return ALL lists in the project (not filtered by userId)
   return prisma.boardList.findMany({
-    where: { projectId, userId: user.id },
+    where: { projectId },
     orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
   })
 }
