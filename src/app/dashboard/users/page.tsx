@@ -1,9 +1,15 @@
-export default function UsersPage() {
+import { createClient } from '@/utils/supabase/server'
+
+export default async function UsersPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const email = user?.email || 'Unknown User'
+  const name = email.split('@')[0]
+  const avatar = name.substring(0, 2).toUpperCase()
+
   const users = [
-    { name: 'Tony Stark', role: 'Pro Member', status: 'Online', avatar: 'TS' },
-    { name: 'Steve Rogers', role: 'Team Lead', status: 'Away', avatar: 'SR' },
-    { name: 'Natasha Romanoff', role: 'Admin', status: 'Online', avatar: 'NR' },
-    { name: 'Bruce Banner', role: 'Developer', status: 'Offline', avatar: 'BB' },
+    { name, role: 'Owner', status: 'Online', avatar },
   ];
 
   return (
