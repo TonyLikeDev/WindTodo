@@ -1,13 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
+import { syncUser } from "@/app/actions/userActions";
 
 export default function Sidebar({ isOpen = false, onClose = () => {} }: { isOpen?: boolean, onClose?: () => void }) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [isMounted, setIsMounted] = useState(false);
   const pathname = usePathname();
+
+  useEffect(() => {
+    setIsMounted(true);
+    syncUser().then(setUser);
+  }, []);
 
   const navItems = [
     { name: "Dashboard", href: "/dashboard", icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path> },
@@ -69,18 +77,24 @@ export default function Sidebar({ isOpen = false, onClose = () => {} }: { isOpen
               className="glass rounded-xl p-4 flex items-center space-x-3 cursor-pointer hover:bg-white/5 transition-colors"
               onClick={() => setIsSettingsOpen(!isSettingsOpen)}
             >
-                <div className="w-10 h-10 rounded-full bg-gray-600 border border-white/10 overflow-hidden relative">
-                    <Image 
-                      src="https://ui-avatars.com/api/?name=Tony+Stark&background=333&color=fff" 
-                      alt="User" 
-                      fill
-                      unoptimized
-                      className="object-cover"
-                    />
+                <div className="w-10 h-10 rounded-full bg-white/10 border border-white/10 overflow-hidden relative">
+                    {isMounted && (
+                      <Image 
+                        src={user?.avatarUrl || `https://ui-avatars.com/api/?name=${user?.name || user?.email || 'User'}&background=333&color=fff`} 
+                        alt="User" 
+                        fill
+                        unoptimized
+                        className="object-cover"
+                      />
+                    )}
                 </div>
                 <div className="flex-grow min-w-0">
-                    <p className="text-sm font-medium text-white truncate">Tony Stark</p>
-                    <p className="text-xs text-gray-500 truncate">Pro Member</p>
+                    <p className="text-sm font-medium text-white truncate">
+                      {isMounted ? (user?.name || user?.email?.split('@')[0] || 'Member') : '...'}
+                    </p>
+                    <p className="text-xs text-gray-500 truncate">
+                      {isMounted ? (user?.name ? 'Pro Member' : 'Member') : 'Loading...'}
+                    </p>
                 </div>
                 <button className="text-gray-500 hover:text-white transition-colors" onClick={(e) => { e.stopPropagation(); setIsSettingsOpen(!isSettingsOpen); }}>
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z"></path></svg>

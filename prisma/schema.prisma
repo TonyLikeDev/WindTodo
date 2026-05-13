@@ -7,13 +7,22 @@ datasource db {
   url       = env("DATABASE_URL")
 }
 
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
 model Task {
-  id        String   @id @default(uuid())
+  id        String       @id @default(uuid())
   title     String
   userId    String
   listId    String
-  position  Int      @default(0)
-  createdAt DateTime @default(now())
+  priority  TaskPriority @default(MEDIUM)
+  dueDate   DateTime?
+  position  Int          @default(0)
+  createdAt DateTime     @default(now())
 
   @@index([userId, listId])
   @@index([listId, position])

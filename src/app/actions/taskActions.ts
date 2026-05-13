@@ -16,12 +16,41 @@ async function requireUserId() {
 export async function getTasks(listId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
 
+  // Allow seeing tasks if you are the creator OR if the list belongs to a project you are a member of
+  return prisma.task.findMany({
+    where: {
+      listId,
+      OR: [
+        { list: { project: { userId: user.id } } },
+        { list: { project: { members: { some: { id: user.id } } } } }
+      ]
+    },
+    include: {
+      assignee: true
+    },
+    orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
+  })
+}
+
+export async function getMyTasks() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
 
   return prisma.task.findMany({
-    where: { userId: user.id, listId },
-    orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
+    where: {
+      assigneeId: user.id
+    },
+    include: {
+      list: {
+        include: {
+          project: true
+        }
+      }
+    },
+    orderBy: { createdAt: 'desc' }
   })
 }
 
