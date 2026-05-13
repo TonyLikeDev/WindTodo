@@ -43,5 +43,7 @@ next-env.d.ts
 AGENTS.md
 CLAUDE.md
 
+# project-specific
+demo/
 
 /src/generated/prisma
