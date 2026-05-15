@@ -28,7 +28,7 @@ export default function TaskList({ title, listId, placeholder, bgColor }: { titl
       const newTitle = inputValue.trim();
       setInputValue('');
       
-      const optimistic: any = { 
+      const optimistic: Task = { 
         id: `temp-${Date.now()}`, 
         title: newTitle, 
         listId, 
@@ -91,7 +91,7 @@ export default function TaskList({ title, listId, placeholder, bgColor }: { titl
               <div className="flex items-center gap-2">
                 <select
                   value={task.status}
-                  onChange={(e) => updateStatus(task.id, e.target.value as any)}
+                  onChange={(e) => updateStatus(task.id, e.target.value as 'TODO' | 'IN_PROGRESS' | 'DONE')}
                   className={`text-[9px] font-bold uppercase tracking-wider rounded-md px-1.5 py-0.5 border transition-all cursor-pointer outline-none ${
                     task.status === 'DONE' ? 'bg-green-500/10 border-green-500/20 text-green-400' :
                     task.status === 'IN_PROGRESS' ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' :

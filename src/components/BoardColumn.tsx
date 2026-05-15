@@ -144,7 +144,7 @@ export default function BoardColumn({
       setValue('');
       return;
     }
-    const optimistic: any = {
+    const optimistic: Task = {
       id: `temp-${Date.now()}`,
       title: trimmed,
       listId,

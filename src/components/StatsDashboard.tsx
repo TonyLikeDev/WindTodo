@@ -17,13 +17,44 @@ import GlassCard from './GlassCard';
 const STATUS_COLORS = { done: '#22c55e', inProgress: '#3b82f6', todo: '#52525b' };
 const AVATAR_PALETTE = ['#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444'];
 
+// ─── Types ─────────────────────────────────────────────────────────────────────
+interface OverallStats {
+  totalProjects: number;
+  totalTasks: number;
+  completedTasks: number;
+  inProgressTasks: number;
+  todoTasks: number;
+}
+
+interface ProjectData {
+  id: string;
+  name: string;
+  color: string;
+}
+
+interface ProjectBreakdown {
+  projectName: string;
+  totalTasks: number;
+  completedTasks: number;
+  inProgressTasks: number;
+  todoTasks: number;
+  unassignedCount: number;
+  userStats: MemberStats[];
+}
+
 // ─── Custom tooltip ─────────────────────────────────────────────────────────────
-function CustomTooltip({ active, payload, label }: any) {
+interface TooltipPayload {
+  name: string;
+  value: number;
+  fill: string;
+}
+
+function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: TooltipPayload[]; label?: string }) {
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-[#111] border border-white/10 rounded-xl p-3 text-xs shadow-2xl">
       <p className="text-white font-bold mb-1.5">{label}</p>
-      {payload.map((p: any) => (
+      {payload.map((p) => (
         <p key={p.name} style={{ color: p.fill }} className="font-medium">
           {p.name}: <span className="text-white">{p.value}</span>
         </p>
@@ -52,7 +83,20 @@ function RingProgress({ pct, color, size = 80 }: { pct: number; color: string; s
 }
 
 // ─── Member card ────────────────────────────────────────────────────────────────
-function MemberCard({ u, rank, totalProjectTasks }: { u: any; rank: number; totalProjectTasks: number }) {
+interface MemberStats {
+  id: string;
+  name: string;
+  email: string;
+  avatarUrl?: string | null;
+  total: number;
+  completed: number;
+  inProgress: number;
+  todo: number;
+  completionPct: number;
+  contributionPct: number;
+}
+
+function MemberCard({ u, rank, totalProjectTasks }: { u: MemberStats; rank: number; totalProjectTasks: number }) {
   const avatarBg = AVATAR_PALETTE[(rank - 1) % AVATAR_PALETTE.length];
   const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null;
 
@@ -145,14 +189,15 @@ function MemberCard({ u, rank, totalProjectTasks }: { u: any; rank: number; tota
 // ─── Main dashboard ─────────────────────────────────────────────────────────────
 export default function StatsDashboard() {
   const [isMounted, setIsMounted] = useState(false);
-  const [overall, setOverall] = useState<any>(null);
-  const [projects, setProjects] = useState<any[]>([]);
+  const [overall, setOverall] = useState<OverallStats | null>(null);
+  const [projects, setProjects] = useState<ProjectData[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
-  const [projectStats, setProjectStats] = useState<any>(null);
+  const [projectStats, setProjectStats] = useState<ProjectBreakdown | null>(null);
   const [loadingProject, setLoadingProject] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsMounted(true);
     async function init() {
       const [overallData, projectsData] = await Promise.all([
@@ -169,6 +214,7 @@ export default function StatsDashboard() {
 
   useEffect(() => {
     if (!selectedProjectId) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadingProject(true);
     getProjectStats(selectedProjectId).then(data => {
       setProjectStats(data);
@@ -184,7 +230,7 @@ export default function StatsDashboard() {
     );
   }
 
-  const overallPct = overall?.totalTasks > 0
+  const overallPct = (overall && overall.totalTasks > 0)
     ? Math.round((overall.completedTasks / overall.totalTasks) * 100)
     : 0;
 
@@ -200,7 +246,7 @@ export default function StatsDashboard() {
     { name: 'To Do',       value: projectStats.todoTasks,       fill: STATUS_COLORS.todo },
   ].filter(d => d.value > 0) : [];
 
-  const barData = projectStats?.userStats?.filter((u: any) => u.total > 0) ?? [];
+  const barData = projectStats?.userStats?.filter((u: MemberStats) => u.total > 0) ?? [];
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
@@ -222,7 +268,7 @@ export default function StatsDashboard() {
             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Overall Tasks</h3>
             <PieChartIcon className="w-4 h-4 text-gray-600" />
           </div>
-          {overall?.totalTasks > 0 ? (
+          {overall && overall.totalTasks > 0 ? (
             <div className="flex items-center gap-4 flex-1">
               <div className="relative w-28 h-28 flex-shrink-0">
                 <ResponsiveContainer width="100%" height="100%">
@@ -383,7 +429,7 @@ export default function StatsDashboard() {
             </GlassCard>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {projectStats.userStats.map((u: any, i: number) => (
+              {projectStats.userStats.map((u: MemberStats, i: number) => (
                 <MemberCard
                   key={u.id}
                   u={u}
