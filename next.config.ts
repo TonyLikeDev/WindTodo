@@ -9,6 +9,12 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  outputFileTracingIncludes: {
+    '/*': [
+      'node_modules/.prisma/client/libquery_engine-*',
+      'node_modules/@prisma/client/**/*',
+    ],
+  },
 };
 
 export default nextConfig;
