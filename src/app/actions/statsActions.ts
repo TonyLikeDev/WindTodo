@@ -2,10 +2,10 @@
 
 import prisma from '@/lib/prisma';
 import type { Prisma } from '@prisma/client';
-import { syncUser } from './userActions';
+import { getAuthUser } from './userActions';
 
 export async function getOverallStats() {
-  const user = await syncUser();
+  const user = await getAuthUser();
   if (!user) return null;
 
   const projectWhere: Prisma.ProjectWhereInput = {
@@ -43,16 +43,15 @@ export async function getOverallStats() {
 }
 
 export async function getProjectStats(projectId: string) {
-  const user = await syncUser();
+  const user = await getAuthUser();
   if (!user) return null;
 
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    include: { members: true },
-  });
-  if (!project) return null;
-
-  const [statusCounts, unassignedCount, perMember] = await Promise.all([
+  // Fan out the project lookup alongside the aggregations — no serial waits.
+  const [project, statusCounts, unassignedCount, perMember] = await Promise.all([
+    prisma.project.findUnique({
+      where: { id: projectId },
+      include: { members: true },
+    }),
     prisma.task.groupBy({
       by: ['status'],
       where: { list: { projectId } },
@@ -67,6 +66,7 @@ export async function getProjectStats(projectId: string) {
       _count: { _all: true },
     }),
   ]);
+  if (!project) return null;
 
   const byStatus: Record<string, number> = Object.fromEntries(
     statusCounts.map((row) => [row.status, row._count?._all ?? 0])

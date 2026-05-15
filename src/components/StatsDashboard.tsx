@@ -271,14 +271,12 @@ export default function StatsDashboard() {
           {overall && overall.totalTasks > 0 ? (
             <div className="flex items-center gap-4 flex-1">
               <div className="relative w-28 h-28 flex-shrink-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={pieData} innerRadius={38} outerRadius={52} dataKey="value" paddingAngle={3}>
-                      {pieData.map((d, i) => <Cell key={i} fill={d.fill} />)}
-                    </Pie>
-                    <Tooltip content={<CustomTooltip />} />
-                  </PieChart>
-                </ResponsiveContainer>
+                <PieChart width={112} height={112}>
+                  <Pie data={pieData} innerRadius={38} outerRadius={52} dataKey="value" paddingAngle={3}>
+                    {pieData.map((d, i) => <Cell key={i} fill={d.fill} />)}
+                  </Pie>
+                  <Tooltip content={<CustomTooltip />} />
+                </PieChart>
                 <div className="absolute inset-0 flex items-center justify-center flex-col">
                   <span className="text-xl font-black text-white">{overallPct}%</span>
                   <span className="text-[9px] text-gray-500 uppercase">done</span>
@@ -325,14 +323,12 @@ export default function StatsDashboard() {
             <div className="flex items-center gap-6 flex-1">
               {/* Donut */}
               <div className="relative w-32 h-32 flex-shrink-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={projectPieData} innerRadius={42} outerRadius={58} dataKey="value" paddingAngle={3}>
-                      {projectPieData.map((d, i) => <Cell key={i} fill={d.fill} />)}
-                    </Pie>
-                    <Tooltip content={<CustomTooltip />} />
-                  </PieChart>
-                </ResponsiveContainer>
+                <PieChart width={128} height={128}>
+                  <Pie data={projectPieData} innerRadius={42} outerRadius={58} dataKey="value" paddingAngle={3}>
+                    {projectPieData.map((d, i) => <Cell key={i} fill={d.fill} />)}
+                  </Pie>
+                  <Tooltip content={<CustomTooltip />} />
+                </PieChart>
                 <div className="absolute inset-0 flex items-center justify-center flex-col">
                   <span className="text-2xl font-black text-white">
                     {projectStats.totalTasks > 0 ? Math.round((projectStats.completedTasks / projectStats.totalTasks) * 100) : 0}%
