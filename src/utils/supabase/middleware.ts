@@ -6,6 +6,9 @@ export async function updateSession(request: NextRequest) {
     request,
   })
 
+  const rememberCookie = request.cookies.get('remember_me')?.value
+  const remember = rememberCookie !== 'false'
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -19,9 +22,13 @@ export async function updateSession(request: NextRequest) {
           supabaseResponse = NextResponse.next({
             request,
           })
-          cookiesToSet.forEach(({ name, value, options }) =>
+          cookiesToSet.forEach(({ name, value, options }) => {
+            if (!remember) {
+              delete options.maxAge
+              delete options.expires
+            }
             supabaseResponse.cookies.set(name, value, options)
-          )
+          })
         },
       },
     }

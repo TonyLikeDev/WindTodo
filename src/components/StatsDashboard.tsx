@@ -12,6 +12,7 @@ import {
 import { getOverallStats, getProjectStats } from '@/app/actions/statsActions';
 import { getProjects } from '@/app/actions/projectActions';
 import GlassCard from './GlassCard';
+import useSWR from 'swr';
 
 // ─── Colour palette ────────────────────────────────────────────────────────────
 const STATUS_COLORS = { done: '#22c55e', inProgress: '#3b82f6', todo: '#52525b' };
@@ -188,44 +189,45 @@ function MemberCard({ u, rank, totalProjectTasks }: { u: MemberStats; rank: numb
 
 // ─── Main dashboard ─────────────────────────────────────────────────────────────
 export default function StatsDashboard() {
-  const [isMounted, setIsMounted] = useState(false);
-  const [overall, setOverall] = useState<OverallStats | null>(null);
-  const [projects, setProjects] = useState<ProjectData[]>([]);
+  const { data: overall, isLoading: overallLoading } = useSWR('overallStats', () => getOverallStats(), {
+    revalidateOnFocus: false,
+    dedupingInterval: 60000,
+  });
+  
+  const { data: projects = [], isLoading: projectsLoading } = useSWR('projects', () => getProjects(), {
+    revalidateOnFocus: false,
+    dedupingInterval: 60000,
+  });
+
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
-  const [projectStats, setProjectStats] = useState<ProjectBreakdown | null>(null);
-  const [loadingProject, setLoadingProject] = useState(false);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIsMounted(true);
-    async function init() {
-      const [overallData, projectsData] = await Promise.all([
-        getOverallStats(),
-        getProjects()
-      ]);
-      setOverall(overallData);
-      setProjects(projectsData);
-      if (projectsData.length > 0) setSelectedProjectId(projectsData[0].id);
-      setLoading(false);
+    if (projects.length > 0 && !selectedProjectId) {
+      setSelectedProjectId(projects[0].id);
     }
-    init();
-  }, []);
+  }, [projects, selectedProjectId]);
 
-  useEffect(() => {
-    if (!selectedProjectId) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLoadingProject(true);
-    getProjectStats(selectedProjectId).then(data => {
-      setProjectStats(data);
-      setLoadingProject(false);
-    });
-  }, [selectedProjectId]);
+  const { data: projectStats, isLoading: loadingProject } = useSWR(
+    selectedProjectId ? `projectStats-${selectedProjectId}` : null,
+    () => getProjectStats(selectedProjectId),
+    { revalidateOnFocus: false, dedupingInterval: 30000 }
+  );
 
-  if (!isMounted || loading) {
+  const loading = overallLoading || projectsLoading;
+
+  if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-white" />
+      <div className="space-y-8 animate-pulse">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <GlassCard key={i} className="h-28 flex items-center justify-center border-white/5"><div /></GlassCard>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <GlassCard className="h-64 border-white/5"><div /></GlassCard>
+          <GlassCard className="h-64 lg:col-span-2 border-white/5"><div /></GlassCard>
+        </div>
+        <GlassCard className="h-72 border-white/5"><div /></GlassCard>
       </div>
     );
   }
@@ -270,16 +272,14 @@ export default function StatsDashboard() {
           </div>
           {overall && overall.totalTasks > 0 ? (
             <div className="flex items-center gap-4 flex-1">
-              <div className="relative w-28 h-28 flex-shrink-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={pieData} innerRadius={38} outerRadius={52} dataKey="value" paddingAngle={3}>
-                      {pieData.map((d, i) => <Cell key={i} fill={d.fill} />)}
-                    </Pie>
-                    <Tooltip content={<CustomTooltip />} />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="absolute inset-0 flex items-center justify-center flex-col">
+              <div className="relative w-28 h-28 flex-shrink-0 flex items-center justify-center">
+                <PieChart width={112} height={112}>
+                  <Pie data={pieData} innerRadius={38} outerRadius={52} dataKey="value" paddingAngle={3}>
+                    {pieData.map((d, i) => <Cell key={i} fill={d.fill} />)}
+                  </Pie>
+                  <Tooltip content={<CustomTooltip />} />
+                </PieChart>
+                <div className="absolute inset-0 flex items-center justify-center flex-col pointer-events-none">
                   <span className="text-xl font-black text-white">{overallPct}%</span>
                   <span className="text-[9px] text-gray-500 uppercase">done</span>
                 </div>
@@ -324,16 +324,14 @@ export default function StatsDashboard() {
           ) : projectStats ? (
             <div className="flex items-center gap-6 flex-1">
               {/* Donut */}
-              <div className="relative w-32 h-32 flex-shrink-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={projectPieData} innerRadius={42} outerRadius={58} dataKey="value" paddingAngle={3}>
-                      {projectPieData.map((d, i) => <Cell key={i} fill={d.fill} />)}
-                    </Pie>
-                    <Tooltip content={<CustomTooltip />} />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="absolute inset-0 flex items-center justify-center flex-col">
+              <div className="relative w-32 h-32 flex-shrink-0 flex items-center justify-center">
+                <PieChart width={128} height={128}>
+                  <Pie data={projectPieData} innerRadius={42} outerRadius={58} dataKey="value" paddingAngle={3}>
+                    {projectPieData.map((d, i) => <Cell key={i} fill={d.fill} />)}
+                  </Pie>
+                  <Tooltip content={<CustomTooltip />} />
+                </PieChart>
+                <div className="absolute inset-0 flex items-center justify-center flex-col pointer-events-none">
                   <span className="text-2xl font-black text-white">
                     {projectStats.totalTasks > 0 ? Math.round((projectStats.completedTasks / projectStats.totalTasks) * 100) : 0}%
                   </span>
@@ -390,8 +388,8 @@ export default function StatsDashboard() {
             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Task Distribution by Member</h3>
             <BarChart2 className="w-4 h-4 text-gray-600" />
           </div>
-          <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-56 min-w-0">
+            <ResponsiveContainer width="99%" height="100%" minWidth={100} minHeight={100}>
               <BarChart data={barData} margin={{ top: 0, right: 8, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" vertical={false} />
                 <XAxis dataKey="name" stroke="#555" fontSize={11} tickLine={false} axisLine={false} />
