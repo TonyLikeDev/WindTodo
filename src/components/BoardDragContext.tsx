@@ -98,33 +98,54 @@ export function BoardDragProvider({
     ) => {
       const target = event.currentTarget as HTMLElement;
       const rect = target.getBoundingClientRect();
-      setDrag({
+      const startX = event.clientX;
+      const startY = event.clientY;
+      const initialDragState = {
         task,
         sourceListId,
-        pos: { x: event.clientX, y: event.clientY },
+        pos: { x: startX, y: startY },
         pointerOffset: {
-          x: event.clientX - rect.left,
-          y: event.clientY - rect.top,
+          x: startX - rect.left,
+          y: startY - rect.top,
         },
         width: rect.width,
         height: rect.height,
-      });
-      setHoveredSlot(null);
+      };
+
+      let isDragging = false;
 
       const onMove = (e: PointerEvent) => {
-        setDrag((prev) =>
-          prev ? { ...prev, pos: { x: e.clientX, y: e.clientY } } : prev,
-        );
-        setHoveredSlot(findSlotAt(e.clientX, e.clientY));
+        if (!isDragging) {
+          const dx = e.clientX - startX;
+          const dy = e.clientY - startY;
+          if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+            isDragging = true;
+            document.body.style.userSelect = 'none';
+            document.body.style.cursor = 'grabbing';
+            setDrag(initialDragState);
+            setHoveredSlot(findSlotAt(e.clientX, e.clientY));
+          }
+        } else {
+          setDrag((prev) =>
+            prev ? { ...prev, pos: { x: e.clientX, y: e.clientY } } : prev,
+          );
+          setHoveredSlot(findSlotAt(e.clientX, e.clientY));
+        }
       };
 
       const finish = (e: PointerEvent) => {
-        const slot = findSlotAt(e.clientX, e.clientY);
-        if (slot) {
-          // Skip the trivial drop-on-self position within the same list.
-          // (When dragging within the source list, indexes account for the
-          // moving task being removed first, so no special case is needed.)
-          onDrop(task, sourceListId, slot.listId, slot.index);
+        if (isDragging) {
+          const slot = findSlotAt(e.clientX, e.clientY);
+          if (slot) {
+            onDrop(task, sourceListId, slot.listId, slot.index);
+          }
+          // Prevent the click event that fires immediately after pointerup from opening the modal
+          const captureClick = (ev: MouseEvent) => {
+            ev.stopPropagation();
+            ev.preventDefault();
+          };
+          window.addEventListener('click', captureClick, { capture: true, once: true });
+          setTimeout(() => window.removeEventListener('click', captureClick, { capture: true }), 0);
         }
         cleanup();
       };
@@ -141,8 +162,6 @@ export function BoardDragProvider({
         setHoveredSlot(null);
       };
 
-      document.body.style.userSelect = 'none';
-      document.body.style.cursor = 'grabbing';
       window.addEventListener('pointermove', onMove);
       window.addEventListener('pointerup', finish);
       window.addEventListener('pointercancel', cancel);

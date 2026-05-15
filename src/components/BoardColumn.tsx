@@ -5,6 +5,7 @@ import useSWR from 'swr';
 import { createTask, deleteTask, getTasks, updateTask } from '@/app/actions/taskActions';
 import { useBoardDrag } from './BoardDragContext';
 import { User, Trash2, MoreHorizontal, Plus, ChevronDown } from 'lucide-react';
+import TaskDetailModal from './TaskDetailModal';
 
 type UserProfile = {
   id: string;
@@ -93,6 +94,7 @@ export default function BoardColumn({
   const columnRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const { registerDropTarget, startDrag, draggingTaskId, hoveredSlot } = useBoardDrag();
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   useEffect(() => {
     if (adding) inputRef.current?.focus();
@@ -328,6 +330,9 @@ export default function BoardColumn({
                       e.preventDefault();
                       startDrag(t, e, listId);
                     }}
+                    onClick={() => {
+                      if (!isTemp) setSelectedTaskId(t.id);
+                    }}
                     className={`bg-white/[0.04] backdrop-blur-md border border-white/5 px-3 py-3 my-1 rounded-xl text-sm text-white flex flex-col gap-2.5 group transition-all duration-200 hover:bg-white/[0.08] hover:border-white/10 hover:shadow-lg ${
                       isTemp ? 'opacity-50 cursor-default' : 'cursor-grab active:cursor-grabbing'
                     } ${t.status === 'DONE' ? 'opacity-60' : ''}`}
@@ -458,6 +463,15 @@ export default function BoardColumn({
             </button>
           )}
         </div>
+      )}
+
+      {selectedTaskId && (
+        <TaskDetailModal 
+          taskId={selectedTaskId}
+          isOpen={!!selectedTaskId}
+          onClose={() => setSelectedTaskId(null)}
+          listName={title}
+        />
       )}
     </div>
   );

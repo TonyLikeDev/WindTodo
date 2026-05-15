@@ -5,6 +5,7 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum TaskStatus {
@@ -23,6 +24,7 @@ model User {
   memberProjects  Project[]   @relation("ProjectMembers")
   createdProjects Project[]   @relation("ProjectCreator")
   lists           BoardList[] @relation("ListCreator")
+  activities      TaskActivity[]
   createdAt       DateTime    @default(now())
 }
 
@@ -37,10 +39,26 @@ model Task {
   list        BoardList  @relation(fields: [listId], references: [id], onDelete: Cascade)
   position    Int        @default(0)
   status      TaskStatus @default(TODO)
+  description String?    @db.Text
+  dueDate     DateTime?
+  activities  TaskActivity[]
   createdAt   DateTime   @default(now())
 
   @@index([userId, listId])
   @@index([listId, position])
+}
+
+model TaskActivity {
+  id        String   @id @default(uuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  type      String   // 'comment', 'system'
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([taskId])
 }
 
 model Project {
