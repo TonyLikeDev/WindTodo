@@ -1,6 +1,8 @@
 import { getAllUsers } from '@/app/actions/userActions';
 import AddUserForm from '@/components/AddUserForm';
 
+export const dynamic = 'force-dynamic';
+
 export default async function UsersPage() {
   const users = await getAllUsers();
 
