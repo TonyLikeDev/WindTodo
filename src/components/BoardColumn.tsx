@@ -5,6 +5,7 @@ import useSWR from 'swr';
 import { createTask, deleteTask, getTasks, updateTask } from '@/app/actions/taskActions';
 import { useBoardDrag } from './BoardDragContext';
 import { User, Trash2, MoreHorizontal, Plus, ChevronDown } from 'lucide-react';
+import TaskDetailModal, { TaskPatch } from './TaskDetailModal';
 
 type UserProfile = {
   id: string;
@@ -16,14 +17,22 @@ type UserProfile = {
 type Task = {
   id: string;
   title: string;
+  description: string | null;
   listId: string;
   userId: string;
   position: number;
   status: 'TODO' | 'IN_PROGRESS' | 'DONE';
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+  type: 'TASK' | 'STORY' | 'BUG';
+  startDate: Date | null;
+  endDate: Date | null;
   assigneeId: string | null;
   assignee?: UserProfile | null;
+  creator?: UserProfile | null;
   createdAt: Date;
 };
+
+const DRAG_THRESHOLD_PX = 6;
 
 export const LIST_COLORS = [
   { name: 'Default',    value: 'rgba(255, 255, 255, 0.05)' },
@@ -87,6 +96,8 @@ export default function BoardColumn({
   const [value, setValue] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [openTaskId, setOpenTaskId] = useState<string | null>(null);
   const [renaming, setRenaming] = useState(isDraft);
   const [renameValue, setRenameValue] = useState(isDraft ? '' : title);
   const renameInputRef = useRef<HTMLInputElement>(null);
@@ -104,6 +115,15 @@ export default function BoardColumn({
       renameInputRef.current?.select();
     }
   }, [renaming]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [menuOpen]);
 
   const commitRename = () => {
     const trimmed = renameValue.trim();
@@ -147,10 +167,15 @@ export default function BoardColumn({
     const optimistic: Task = {
       id: `temp-${Date.now()}`,
       title: trimmed,
+      description: null,
       listId,
       userId: 'temp',
       position: tasks.length,
       status: 'TODO',
+      priority: 'MEDIUM',
+      type: 'TASK',
+      startDate: null,
+      endDate: null,
       assigneeId: null,
       createdAt: new Date(),
     };
@@ -179,6 +204,22 @@ export default function BoardColumn({
     mutate();
   };
 
+  const patchTask = async (id: string, patch: TaskPatch) => {
+    const next = tasks.map((t) => {
+      if (t.id !== id) return t;
+      const merged: Task = { ...t, ...patch } as Task;
+      if (patch.assigneeId !== undefined) {
+        merged.assignee = patch.assigneeId
+          ? members.find((m) => m.id === patch.assigneeId) ?? null
+          : null;
+      }
+      return merged;
+    });
+    mutate(next, false);
+    await updateTask(id, patch);
+    mutate();
+  };
+
   const isHoveredHere = !isDraft && hoveredSlot?.listId === listId;
   const visibleTasks = useMemo(
     () => tasks.filter((t) => t.id !== draggingTaskId),
@@ -187,8 +228,10 @@ export default function BoardColumn({
 
   const showRenameInput = renaming && (isDraft || onRename);
   const colTheme = getColumnTheme(title);
+  const openTask = openTaskId ? tasks.find((t) => t.id === openTaskId) ?? null : null;
 
   return (
+    <>
     <div
       ref={columnRef}
       className={`rounded-2xl border flex flex-col transition-all duration-300 ${className} ${
@@ -245,7 +288,7 @@ export default function BoardColumn({
           )}
         </div>
         {!isDraft && (onRemoveList || onChangeColor) && (
-          <div className="relative">
+          <div className="relative" ref={menuRef}>
             <button
               onClick={() => setMenuOpen((v) => !v)}
               className="text-gray-400 hover:text-white p-1 rounded hover:bg-white/10 transition-colors"
@@ -325,8 +368,39 @@ export default function BoardColumn({
                       if (isTemp) return;
                       if (e.button !== 0) return;
                       if ((e.target as HTMLElement).closest('button, select, input')) return;
-                      e.preventDefault();
-                      startDrag(t, e, listId);
+                      const element = e.currentTarget as HTMLElement;
+                      const startX = e.clientX;
+                      const startY = e.clientY;
+                      let started = false;
+
+                      const onMove = (ev: PointerEvent) => {
+                        if (started) return;
+                        const dx = ev.clientX - startX;
+                        const dy = ev.clientY - startY;
+                        if (dx * dx + dy * dy >= DRAG_THRESHOLD_PX * DRAG_THRESHOLD_PX) {
+                          started = true;
+                          cleanup();
+                          startDrag(t, listId, {
+                            clientX: ev.clientX,
+                            clientY: ev.clientY,
+                            element,
+                          });
+                        }
+                      };
+                      const onUp = () => {
+                        cleanup();
+                        if (!started) setOpenTaskId(t.id);
+                      };
+                      const onCancel = () => cleanup();
+                      const cleanup = () => {
+                        window.removeEventListener('pointermove', onMove);
+                        window.removeEventListener('pointerup', onUp);
+                        window.removeEventListener('pointercancel', onCancel);
+                      };
+
+                      window.addEventListener('pointermove', onMove);
+                      window.addEventListener('pointerup', onUp);
+                      window.addEventListener('pointercancel', onCancel);
                     }}
                     className={`bg-white/[0.04] backdrop-blur-md border border-white/5 px-3 py-3 my-1 rounded-xl text-sm text-white flex flex-col gap-2.5 group transition-all duration-200 hover:bg-white/[0.08] hover:border-white/10 hover:shadow-lg ${
                       isTemp ? 'opacity-50 cursor-default' : 'cursor-grab active:cursor-grabbing'
@@ -460,6 +534,19 @@ export default function BoardColumn({
         </div>
       )}
     </div>
+    {openTask && (
+      <TaskDetailModal
+        task={openTask}
+        members={members}
+        onClose={() => setOpenTaskId(null)}
+        onChange={(patch) => patchTask(openTask.id, patch)}
+        onDelete={() => {
+          remove(openTask.id);
+          setOpenTaskId(null);
+        }}
+      />
+    )}
+    </>
   );
 }
 

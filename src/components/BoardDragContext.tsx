@@ -38,8 +38,8 @@ type Ctx = {
   registerDropTarget: (listId: string, handle: DropTargetHandle | null) => void;
   startDrag: (
     task: DraggableTask,
-    event: React.PointerEvent,
     sourceListId: string,
+    origin: { clientX: number; clientY: number; element: HTMLElement },
   ) => void;
   draggingTaskId: string | null;
   hoveredSlot: DropSlot | null;
@@ -93,18 +93,17 @@ export function BoardDragProvider({
   const startDrag = useCallback(
     (
       task: DraggableTask,
-      event: React.PointerEvent,
       sourceListId: string,
+      origin: { clientX: number; clientY: number; element: HTMLElement },
     ) => {
-      const target = event.currentTarget as HTMLElement;
-      const rect = target.getBoundingClientRect();
+      const rect = origin.element.getBoundingClientRect();
       setDrag({
         task,
         sourceListId,
-        pos: { x: event.clientX, y: event.clientY },
+        pos: { x: origin.clientX, y: origin.clientY },
         pointerOffset: {
-          x: event.clientX - rect.left,
-          y: event.clientY - rect.top,
+          x: origin.clientX - rect.left,
+          y: origin.clientY - rect.top,
         },
         width: rect.width,
         height: rect.height,
