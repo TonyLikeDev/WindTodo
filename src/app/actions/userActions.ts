@@ -1,10 +1,11 @@
 'use server';
 
+import { cache } from 'react';
 import prisma from '@/lib/prisma';
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 
-export async function syncUser() {
+export const syncUser = cache(async () => {
   const supabase = await createClient();
   const { data: { user }, error } = await supabase.auth.getUser();
 
@@ -16,43 +17,53 @@ export async function syncUser() {
   const name = user.user_metadata.full_name || email.split('@')[0];
   const avatarUrl = user.user_metadata.avatar_url ?? null;
 
-  const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing && existing.id !== user.id && existing.id.startsWith('pending:')) {
+  const byId = await prisma.user.findUnique({ where: { id: user.id } });
+  if (byId) {
+    if (byId.email === email && byId.name === name && byId.avatarUrl === avatarUrl) {
+      return byId;
+    }
+    return prisma.user.update({
+      where: { id: user.id },
+      data: { email, name, avatarUrl },
+    });
+  }
+
+  // Migrate a pending placeholder user keyed by email, if one exists.
+  const pending = await prisma.user.findUnique({ where: { email } });
+  if (pending && pending.id.startsWith('pending:')) {
     await prisma.$transaction(async (tx) => {
       await tx.user.update({
-        where: { id: existing.id },
-        data: { email: `pending-migrating:${existing.id}` },
+        where: { id: pending.id },
+        data: { email: `pending-migrating:${pending.id}` },
       });
       await tx.user.create({
         data: { id: user.id, email, name, avatarUrl },
       });
-      await tx.task.updateMany({ where: { userId: existing.id }, data: { userId: user.id } });
-      await tx.task.updateMany({ where: { assigneeId: existing.id }, data: { assigneeId: user.id } });
-      await tx.project.updateMany({ where: { userId: existing.id }, data: { userId: user.id } });
-      await tx.boardList.updateMany({ where: { userId: existing.id }, data: { userId: user.id } });
+      await tx.task.updateMany({ where: { userId: pending.id }, data: { userId: user.id } });
+      await tx.task.updateMany({ where: { assigneeId: pending.id }, data: { assigneeId: user.id } });
+      await tx.project.updateMany({ where: { userId: pending.id }, data: { userId: user.id } });
+      await tx.boardList.updateMany({ where: { userId: pending.id }, data: { userId: user.id } });
       const memberProjects = await tx.project.findMany({
-        where: { members: { some: { id: existing.id } } },
+        where: { members: { some: { id: pending.id } } },
         select: { id: true },
       });
       for (const p of memberProjects) {
         await tx.project.update({
           where: { id: p.id },
           data: {
-            members: { disconnect: { id: existing.id }, connect: { id: user.id } },
+            members: { disconnect: { id: pending.id }, connect: { id: user.id } },
           },
         });
       }
-      await tx.user.delete({ where: { id: existing.id } });
+      await tx.user.delete({ where: { id: pending.id } });
     });
     return prisma.user.findUnique({ where: { id: user.id } });
   }
 
-  return prisma.user.upsert({
-    where: { id: user.id },
-    update: { email, name, avatarUrl },
-    create: { id: user.id, email, name, avatarUrl },
+  return prisma.user.create({
+    data: { id: user.id, email, name, avatarUrl },
   });
-}
+});
 
 export async function getAllUsers() {
   return await prisma.user.findMany({
