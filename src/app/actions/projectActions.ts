@@ -3,16 +3,17 @@
 import prisma from '@/lib/prisma'
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { syncUser } from './userActions'
+import { getAuthUser, syncUser } from './userActions'
 
 async function requireUserId() {
+  // Writes touch FKs into User — must guarantee the row exists.
   const user = await syncUser()
   if (!user) throw new Error('Unauthorized')
   return user.id
 }
 
 export async function getProjects() {
-  const user = await syncUser()
+  const user = await getAuthUser()
   if (!user) return []
 
   return prisma.project.findMany({
@@ -85,7 +86,7 @@ export async function deleteProject(projectId: string) {
 }
 
 export async function getBoardLists(projectId: string) {
-  const user = await syncUser()
+  const user = await getAuthUser()
   if (!user) return []
 
   // Check user is member or creator of this project

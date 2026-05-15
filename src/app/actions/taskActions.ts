@@ -1,32 +1,99 @@
 'use server'
 
 import prisma from '@/lib/prisma'
-import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { syncUser } from './userActions'
+import { getAuthUser, syncUser } from './userActions'
 
 async function requireUserId() {
+  // Writes touch FKs into User — must guarantee the row exists.
   const user = await syncUser()
   if (!user) throw new Error('Unauthorized')
   return user.id
 }
 
+// True iff `listId` belongs to a project the user created or is a member of.
+async function userCanAccessList(listId: string, userId: string) {
+  const list = await prisma.boardList.findFirst({
+    where: {
+      id: listId,
+      project: {
+        OR: [
+          { userId },
+          { members: { some: { id: userId } } },
+        ],
+      },
+    },
+    select: { id: true },
+  })
+  return !!list
+}
+
+async function loadTaskForUser(taskId: string, userId: string) {
+  return prisma.task.findFirst({
+    where: {
+      id: taskId,
+      list: {
+        project: {
+          OR: [
+            { userId },
+            { members: { some: { id: userId } } },
+          ],
+        },
+      },
+    },
+    select: { id: true, listId: true },
+  })
+}
+
+const TASK_INCLUDE = { creator: true, assignee: true } as const
+
+// `listId` may be either a real BoardList id, or one of the "virtual" sentinels
+// used by the dashboard widgets:
+//   - "recent_assignments": tasks assigned to the current user (newest first)
+//   - "all_tasks":          tasks created by or assigned to the current user
 export async function getTasks(listId: string) {
-  const user = await syncUser()
+  const user = await getAuthUser()
   if (!user) return []
+
+  if (listId === 'recent_assignments') {
+    return prisma.task.findMany({
+      where: { assigneeId: user.id },
+      include: TASK_INCLUDE,
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    })
+  }
+
+  if (listId === 'all_tasks') {
+    return prisma.task.findMany({
+      where: {
+        OR: [{ userId: user.id }, { assigneeId: user.id }],
+      },
+      include: TASK_INCLUDE,
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    })
+  }
+
+  if (!(await userCanAccessList(listId, user.id))) return []
 
   return prisma.task.findMany({
     where: { listId },
-    include: {
-      creator: true,
-      assignee: true,
-    },
+    include: TASK_INCLUDE,
     orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
   })
 }
 
 export async function createTask(title: string, listId: string, assigneeId?: string) {
   const userId = await requireUserId()
+
+  if (listId === 'recent_assignments' || listId === 'all_tasks') {
+    throw new Error('Cannot create tasks in a virtual list')
+  }
+
+  if (!(await userCanAccessList(listId, userId))) {
+    throw new Error('Not authorized for this list')
+  }
 
   const last = await prisma.task.findFirst({
     where: { listId },
@@ -42,10 +109,7 @@ export async function createTask(title: string, listId: string, assigneeId?: str
       assigneeId,
       position: (last?.position ?? -1) + 1,
     },
-    include: {
-      creator: true,
-      assignee: true,
-    }
+    include: TASK_INCLUDE,
   })
 
   revalidatePath('/')
@@ -62,15 +126,15 @@ export async function updateTask(taskId: string, data: {
   startDate?: Date | null
   endDate?: Date | null
 }) {
-  await requireUserId()
+  const userId = await requireUserId()
+
+  const existing = await loadTaskForUser(taskId, userId)
+  if (!existing) throw new Error('Task not found')
 
   const task = await prisma.task.update({
     where: { id: taskId },
     data,
-    include: {
-      creator: true,
-      assignee: true,
-    }
+    include: TASK_INCLUDE,
   })
 
   revalidatePath('/')
@@ -84,12 +148,13 @@ export async function moveTask(
 ) {
   const userId = await requireUserId()
 
-  const task = await prisma.task.findFirst({
-    where: { id: taskId },
-  })
-  if (!task) return
+  const existing = await loadTaskForUser(taskId, userId)
+  if (!existing) throw new Error('Task not found')
+  if (!(await userCanAccessList(targetListId, userId))) {
+    throw new Error('Not authorized for target list')
+  }
 
-  const sourceListId = task.listId
+  const sourceListId = existing.listId
 
   await prisma.$transaction(async (tx) => {
     if (sourceListId === targetListId) {
@@ -151,9 +216,9 @@ export async function moveTask(
 }
 
 export async function deleteTask(taskId: string) {
-  await requireUserId()
-  await prisma.task.deleteMany({
-    where: { id: taskId },
-  })
+  const userId = await requireUserId()
+  const existing = await loadTaskForUser(taskId, userId)
+  if (!existing) return
+  await prisma.task.delete({ where: { id: taskId } })
   revalidatePath('/')
 }

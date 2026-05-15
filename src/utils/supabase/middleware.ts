@@ -27,12 +27,13 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  // refreshing the auth token
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // Verify the JWT locally via cached JWKS — no HTTP roundtrip to Supabase
+  // Auth. `getClaims()` returns null claims for an unauthenticated request and
+  // returns an error if the JWT is invalid/expired.
+  const { data, error } = await supabase.auth.getClaims()
+  const hasAuth = !error && !!data?.claims
 if (
-  !user &&
+  !hasAuth &&
   !request.nextUrl.pathname.startsWith('/login') &&
   !request.nextUrl.pathname.startsWith('/signup') &&
   !request.nextUrl.pathname.startsWith('/auth') &&
