@@ -3,8 +3,9 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import useSWR from 'swr';
+import { Trash2, ArrowUpRight, Plus } from 'lucide-react';
 import AddProjectModal from './AddProjectModal';
-import { createProject, getProjects } from '@/app/actions/projectActions';
+import { createProject, getProjects, deleteProject } from '@/app/actions/projectActions';
 
 type Project = {
   id: string;
@@ -18,6 +19,10 @@ export default function ProjectsSection() {
   const { data: projects = [], mutate, isLoading } = useSWR<Project[]>(
     'projects',
     getProjects,
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 10000,
+    }
   );
   const [open, setOpen] = useState(false);
 
@@ -35,6 +40,17 @@ export default function ProjectsSection() {
     mutate();
   };
 
+  const handleDelete = async (e: React.MouseEvent, projectId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (confirm('Are you sure you want to delete this project? All lists and tasks will be permanently removed.')) {
+      mutate(projects.filter(p => p.id !== projectId), false);
+      await deleteProject(projectId);
+      mutate();
+    }
+  };
+
   return (
     <>
       {isLoading && (
@@ -49,17 +65,34 @@ export default function ProjectsSection() {
           <Link
             key={p.id}
             href={p.id.startsWith('temp-') ? '#' : `/projects/${p.id}`}
-            className={`glass rounded-2xl p-6 flex flex-col min-h-[180px] hover:bg-white/5 transition-colors group ${
+            className={`glass rounded-[2rem] p-8 flex flex-col min-h-[220px] hover:bg-white/[0.04] transition-all duration-500 group relative border border-white/5 hover:border-white/20 hover:-translate-y-1 ${
               p.id.startsWith('temp-') ? 'opacity-50 pointer-events-none' : ''
             }`}
-            style={{ background: p.color }}
+            style={{ 
+              background: `radial-gradient(circle at top right, ${p.color}15, transparent), linear-gradient(135deg, rgba(255,255,255,0.02) 0%, transparent 100%)` 
+            }}
           >
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-base font-semibold text-white truncate">{p.name}</h3>
-              <svg className="w-4 h-4 text-gray-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
+            <div className="flex items-start justify-between mb-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full shadow-[0_0_10px_currentColor]" style={{ color: p.color, backgroundColor: 'currentColor' }} />
+                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Active Board</span>
+                </div>
+                <h3 className="text-xl font-bold text-white tracking-tight group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-gray-400 transition-all">{p.name}</h3>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center group-hover:bg-white/10 transition-colors">
+                <ArrowUpRight className="w-5 h-5 text-gray-500 group-hover:text-white transition-all" />
+              </div>
             </div>
+            
+            <button
+              onClick={(e) => handleDelete(e, p.id)}
+              className="absolute top-6 right-12 p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg opacity-0 group-hover:opacity-100 transition-all z-10"
+              title="Delete Project"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+
             <p className="text-xs text-gray-400 mb-auto">Open board</p>
             <div className="mt-4 text-[11px] text-gray-500 uppercase tracking-wider">Project</div>
           </Link>
@@ -68,16 +101,14 @@ export default function ProjectsSection() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="glass p-6 rounded-2xl flex flex-col items-center justify-center text-center min-h-[180px] hover:bg-white/5 transition-colors group cursor-pointer"
+        className="glass p-8 rounded-[2rem] flex flex-col items-center justify-center text-center min-h-[220px] hover:bg-white/5 transition-all duration-500 border border-dashed border-white/10 group cursor-pointer hover:border-white/30"
       >
-        <div className="w-14 h-14 bg-white/5 rounded-full flex items-center justify-center mb-3 border border-white/10 group-hover:bg-white/10 transition-colors">
-          <svg className="w-7 h-7 text-gray-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
-          </svg>
+        <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mb-4 border border-white/10 group-hover:scale-110 group-hover:bg-white/10 transition-all">
+          <Plus className="w-8 h-8 text-gray-500 group-hover:text-white transition-colors" />
         </div>
-        <h3 className="text-base font-medium text-white mb-1">Add Project</h3>
-        <p className="text-xs text-gray-500 max-w-xs">
-          New board with custom-colored lists.
+        <h3 className="text-lg font-bold text-white mb-1">New Project</h3>
+        <p className="text-xs text-gray-500 max-w-[150px]">
+          Create a new workspace for your team.
         </p>
       </button>
 

@@ -1,35 +1,35 @@
 'use server'
 
-import { PrismaClient } from '@prisma/client'
+import prisma from '@/lib/prisma'
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
-
-const prisma = new PrismaClient()
+import { syncUser } from './userActions'
 
 async function requireUserId() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await syncUser()
   if (!user) throw new Error('Unauthorized')
   return user.id
 }
 
 export async function getTasks(listId: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
+  const user = await syncUser()
   if (!user) return []
 
   return prisma.task.findMany({
-    where: { userId: user.id, listId },
+    where: { listId },
+    include: {
+      creator: true,
+      assignee: true,
+    },
     orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
   })
 }
 
-export async function createTask(title: string, listId: string) {
+export async function createTask(title: string, listId: string, assigneeId?: string) {
   const userId = await requireUserId()
 
   const last = await prisma.task.findFirst({
-    where: { userId, listId },
+    where: { listId },
     orderBy: { position: 'desc' },
     select: { position: true },
   })
@@ -39,8 +39,29 @@ export async function createTask(title: string, listId: string) {
       title,
       userId,
       listId,
+      assigneeId,
       position: (last?.position ?? -1) + 1,
     },
+    include: {
+      creator: true,
+      assignee: true,
+    }
+  })
+
+  revalidatePath('/')
+  return task
+}
+
+export async function updateTask(taskId: string, data: { title?: string, assigneeId?: string | null, status?: 'TODO' | 'IN_PROGRESS' | 'DONE' }) {
+  const userId = await requireUserId()
+  
+  const task = await prisma.task.update({
+    where: { id: taskId },
+    data,
+    include: {
+      creator: true,
+      assignee: true,
+    }
   })
 
   revalidatePath('/')
@@ -55,7 +76,7 @@ export async function moveTask(
   const userId = await requireUserId()
 
   const task = await prisma.task.findFirst({
-    where: { id: taskId, userId },
+    where: { id: taskId },
   })
   if (!task) return
 
@@ -64,7 +85,7 @@ export async function moveTask(
   await prisma.$transaction(async (tx) => {
     if (sourceListId === targetListId) {
       const items = await tx.task.findMany({
-        where: { userId, listId: targetListId },
+        where: { listId: targetListId },
         orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
         select: { id: true },
       })
@@ -82,7 +103,7 @@ export async function moveTask(
       )
     } else {
       const targetItems = await tx.task.findMany({
-        where: { userId, listId: targetListId },
+        where: { listId: targetListId },
         orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
         select: { id: true },
       })
@@ -105,7 +126,7 @@ export async function moveTask(
       )
 
       const sourceItems = await tx.task.findMany({
-        where: { userId, listId: sourceListId },
+        where: { listId: sourceListId },
         orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
         select: { id: true },
       })
@@ -121,9 +142,9 @@ export async function moveTask(
 }
 
 export async function deleteTask(taskId: string) {
-  const userId = await requireUserId()
+  await requireUserId()
   await prisma.task.deleteMany({
-    where: { id: taskId, userId },
+    where: { id: taskId },
   })
   revalidatePath('/')
 }
