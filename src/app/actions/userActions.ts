@@ -6,24 +6,28 @@ import { revalidatePath } from 'next/cache';
 
 export async function syncUser() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user }, error } = await supabase.auth.getUser();
 
-  if (!user) return null;
+  if (error || !user) {
+    return null;
+  }
 
-  return await prisma.user.upsert({
+  const dbUser = await prisma.user.upsert({
     where: { id: user.id },
     update: {
       email: user.email!,
-      name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || null,
-      avatarUrl: user.user_metadata?.avatar_url || null,
+      name: user.user_metadata.full_name || user.email?.split('@')[0],
+      avatarUrl: user.user_metadata.avatar_url,
     },
     create: {
       id: user.id,
       email: user.email!,
-      name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || null,
-      avatarUrl: user.user_metadata?.avatar_url || null,
+      name: user.user_metadata.full_name || user.email?.split('@')[0],
+      avatarUrl: user.user_metadata.avatar_url,
     },
   });
+
+  return dbUser;
 }
 
 export async function getAllUsers() {
@@ -50,6 +54,36 @@ export async function addMemberToProject(projectId: string, userId: string) {
     },
     include: { members: true },
   });
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath('/dashboard');
+  return result;
+}
+
+export async function addMemberByEmail(projectId: string, email: string) {
+  const trimmedEmail = email.toLowerCase().trim();
+  
+  // 1. Find or create the user (placeholder if they don't exist yet)
+  const user = await prisma.user.upsert({
+    where: { email: trimmedEmail },
+    update: {},
+    create: {
+      id: `placeholder-${Date.now()}`,
+      email: trimmedEmail,
+      name: trimmedEmail.split('@')[0],
+    },
+  });
+
+  // 2. Connect to project
+  const result = await prisma.project.update({
+    where: { id: projectId },
+    data: {
+      members: {
+        connect: { id: user.id },
+      },
+    },
+    include: { members: true },
+  });
+
   revalidatePath(`/projects/${projectId}`);
   revalidatePath('/dashboard');
   return result;

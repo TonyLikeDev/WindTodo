@@ -79,7 +79,9 @@ export async function getProjectStats(projectId: string) {
     const todo        = userTasks.filter(t => t.status === 'TODO').length;
     const total       = userTasks.length;
 
+    // % of their own tasks that are completed
     const completionPct = total > 0 ? Math.round((done / total) * 100) : 0;
+    // % of ALL project tasks they are responsible for
     const contributionPct = totalTasks > 0 ? Math.round((total / totalTasks) * 100) : 0;
 
     return {
@@ -97,6 +99,7 @@ export async function getProjectStats(projectId: string) {
     };
   });
 
+  // Sort by completionPct desc, then total desc
   userStats.sort((a, b) => b.completionPct - a.completionPct || b.total - a.total);
 
   return {

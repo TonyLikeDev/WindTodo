@@ -15,49 +15,17 @@ export async function getTasks(listId: string) {
   const user = await syncUser()
   if (!user) return []
 
-  // Allow seeing tasks if you are the creator OR if the list belongs to a project you are a member of
   return prisma.task.findMany({
-    where: {
-      listId,
-      OR: [
-        { list: { project: { userId: user.id } } },
-        { list: { project: { members: { some: { id: user.id } } } } }
-      ]
-    },
+    where: { listId },
     include: {
       creator: true,
-      assignee: true
+      assignee: true,
     },
     orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
   })
 }
 
-export async function getMyTasks() {
-  const user = await syncUser()
-  if (!user) return []
-
-  return prisma.task.findMany({
-    where: {
-      assigneeId: user.id
-    },
-    include: {
-      list: {
-        include: {
-          project: true
-        }
-      }
-    },
-    orderBy: { createdAt: 'desc' }
-  })
-}
-
-export async function createTask(
-  title: string, 
-  listId: string, 
-  assigneeId?: string,
-  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT' = 'MEDIUM',
-  dueDate?: Date
-) {
+export async function createTask(title: string, listId: string, assigneeId?: string) {
   const userId = await requireUserId()
 
   const last = await prisma.task.findFirst({
@@ -72,8 +40,6 @@ export async function createTask(
       userId,
       listId,
       assigneeId,
-      priority,
-      dueDate,
       position: (last?.position ?? -1) + 1,
     },
     include: {
@@ -86,17 +52,8 @@ export async function createTask(
   return task
 }
 
-export async function updateTask(
-  taskId: string, 
-  data: { 
-    title?: string, 
-    assigneeId?: string | null, 
-    status?: 'TODO' | 'IN_PROGRESS' | 'DONE',
-    priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT',
-    dueDate?: Date | null
-  }
-) {
-  await requireUserId()
+export async function updateTask(taskId: string, data: { title?: string, assigneeId?: string | null, status?: 'TODO' | 'IN_PROGRESS' | 'DONE' }) {
+  const userId = await requireUserId()
   
   const task = await prisma.task.update({
     where: { id: taskId },
@@ -116,7 +73,7 @@ export async function moveTask(
   targetListId: string,
   targetIndex: number,
 ) {
-  await requireUserId()
+  const userId = await requireUserId()
 
   const task = await prisma.task.findFirst({
     where: { id: taskId },

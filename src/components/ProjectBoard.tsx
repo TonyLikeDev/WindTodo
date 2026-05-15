@@ -14,7 +14,7 @@ import {
   renameBoardList,
   updateBoardListColor,
 } from '@/app/actions/projectActions';
-import { getAllUsers, addMemberToProject, removeMemberFromProject } from '@/app/actions/userActions';
+import { getAllUsers, addMemberToProject, removeMemberFromProject, addMemberByEmail } from '@/app/actions/userActions';
 import { Users, Plus, ChevronLeft, BarChart2 } from 'lucide-react';
 
 type UserProfile = {
@@ -58,6 +58,9 @@ export default function ProjectBoard({ projectId }: { projectId: string }) {
   );
   const [draft, setDraft] = useState<{ id: string; color: string; index: number } | null>(null);
   const [showMemberModal, setShowMemberModal] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [isInviting, setIsInviting] = useState(false);
+
   const listsContainerRef = useRef<HTMLDivElement>(null);
 
   const project = useMemo(
@@ -120,6 +123,24 @@ export default function ProjectBoard({ projectId }: { projectId: string }) {
       console.error('Failed to remove member:', err);
     }
   };
+
+  const handleInviteByEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inviteEmail.trim() || isInviting) return;
+
+    setIsInviting(true);
+    try {
+      await addMemberByEmail(projectId, inviteEmail);
+      await mutateProjects();
+      setInviteEmail('');
+      console.log('Member invited successfully:', inviteEmail);
+    } catch (err) {
+      console.error('Failed to invite member:', err);
+    } finally {
+      setIsInviting(false);
+    }
+  };
+
 
   const handleRemoveList = async (id: string) => {
     mutate(lists.filter((l) => l.id !== id), false);
@@ -452,15 +473,36 @@ export default function ProjectBoard({ projectId }: { projectId: string }) {
                   </div>
                 </div>
 
+                {/* Invite by Email */}
+                <form onSubmit={handleInviteByEmail} className="space-y-3">
+                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Invite by Email</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="email"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      placeholder="user@example.com"
+                      className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-white/20"
+                    />
+                    <button
+                      type="submit"
+                      disabled={isInviting || !inviteEmail.trim()}
+                      className="px-4 py-2 bg-white text-black rounded-xl text-sm font-bold hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      {isInviting ? '...' : 'Invite'}
+                    </button>
+                  </div>
+                </form>
+
                 {/* Add New Members */}
                 {(() => {
                   const available = allUsers.filter(u => !project.members.some(m => m.id === u.id));
                   if (available.length === 0) return null;
                   return (
                     <div>
-                      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">Add Members</p>
+                      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">Recent Users</p>
                       <div className="space-y-2">
-                        {available.map(u => (
+                        {available.slice(0, 5).map(u => (
                           <div key={u.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-white/5 transition-colors border border-transparent hover:border-white/5 group">
                             <div className="flex items-center gap-3">
                               <div className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold text-white overflow-hidden border border-white/5">

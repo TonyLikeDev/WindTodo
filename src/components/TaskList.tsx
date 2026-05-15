@@ -71,7 +71,7 @@ export default function TaskList({ title, listId, placeholder, bgColor }: { titl
   }
 
   return (
-    <GlassCard className="flex flex-col h-full transition-all duration-300 group/list" style={bgColor ? { background: bgColor } : undefined}>
+    <GlassCard className="flex flex-col h-full rounded-[2rem] p-8 transition-all duration-500 group/list hover:shadow-2xl hover:shadow-white/5" style={bgColor ? { background: bgColor } : undefined}>
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">
           {title}
@@ -119,18 +119,18 @@ export default function TaskList({ title, listId, placeholder, bgColor }: { titl
         )}
       </div>
 
-      <div className="mt-auto relative group-focus-within/list:ring-2 ring-white/10 rounded-xl transition-all">
+      <div className="mt-auto relative group-focus-within/list:ring-2 ring-white/20 rounded-2xl transition-all">
         <input
           type="text"
           placeholder={placeholder}
-          className="w-full bg-black/40 border border-white/10 rounded-xl py-3 pl-4 pr-12 text-sm text-gray-200 placeholder-gray-500 focus:outline-none transition-all"
+          className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-5 pr-14 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:bg-white/[0.08] transition-all"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') handleAddTask(); }}
         />
         <button 
           onClick={handleAddTask}
-          className="absolute right-2 top-2 p-1.5 bg-white/5 hover:bg-white text-gray-400 hover:text-black rounded-lg transition-all"
+          className="absolute right-2 top-2 bottom-2 px-3 bg-white/5 hover:bg-white text-gray-400 hover:text-black rounded-xl transition-all flex items-center justify-center"
         >
           <Plus className="w-5 h-5" />
         </button>
