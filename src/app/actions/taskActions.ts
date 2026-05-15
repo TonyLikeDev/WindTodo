@@ -52,9 +52,18 @@ export async function createTask(title: string, listId: string, assigneeId?: str
   return task
 }
 
-export async function updateTask(taskId: string, data: { title?: string, assigneeId?: string | null, status?: 'TODO' | 'IN_PROGRESS' | 'DONE' }) {
-  const userId = await requireUserId()
-  
+export async function updateTask(taskId: string, data: {
+  title?: string
+  assigneeId?: string | null
+  status?: 'TODO' | 'IN_PROGRESS' | 'DONE'
+  description?: string | null
+  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+  type?: 'TASK' | 'STORY' | 'BUG'
+  startDate?: Date | null
+  endDate?: Date | null
+}) {
+  await requireUserId()
+
   const task = await prisma.task.update({
     where: { id: taskId },
     data,

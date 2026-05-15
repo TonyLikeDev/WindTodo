@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
@@ -11,6 +12,19 @@ enum TaskStatus {
   TODO
   IN_PROGRESS
   DONE
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskType {
+  TASK
+  STORY
+  BUG
 }
 
 model User {
@@ -27,17 +41,22 @@ model User {
 }
 
 model Task {
-  id          String     @id @default(uuid())
+  id          String       @id @default(uuid())
   title       String
-  userId      String     // Creator
-  creator     User       @relation("TaskCreator", fields: [userId], references: [id])
+  description String?
+  userId      String       // Creator
+  creator     User         @relation("TaskCreator", fields: [userId], references: [id])
   assigneeId  String?
-  assignee    User?      @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  assignee    User?        @relation("TaskAssignee", fields: [assigneeId], references: [id])
   listId      String
-  list        BoardList  @relation(fields: [listId], references: [id], onDelete: Cascade)
-  position    Int        @default(0)
-  status      TaskStatus @default(TODO)
-  createdAt   DateTime   @default(now())
+  list        BoardList    @relation(fields: [listId], references: [id], onDelete: Cascade)
+  position    Int          @default(0)
+  status      TaskStatus   @default(TODO)
+  priority    TaskPriority @default(MEDIUM)
+  type        TaskType     @default(TASK)
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime     @default(now())
 
   @@index([userId, listId])
   @@index([listId, position])
