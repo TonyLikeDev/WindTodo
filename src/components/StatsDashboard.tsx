@@ -18,12 +18,52 @@ const STATUS_COLORS = { done: '#22c55e', inProgress: '#3b82f6', todo: '#52525b' 
 const AVATAR_PALETTE = ['#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444'];
 
 // ─── Custom tooltip ─────────────────────────────────────────────────────────────
-function CustomTooltip({ active, payload, label }: any) {
+// ─── Interfaces ──────────────────────────────────────────────────────────────
+interface UserStat {
+  id: string;
+  name: string;
+  email: string;
+  avatarUrl?: string;
+  todo: number;
+  inProgress: number;
+  completed: number;
+  total: number;
+  completionPct: number;
+  contributionPct: number;
+}
+
+interface ProjectStat {
+  id: string;
+  projectName: string;
+  totalTasks: number;
+  todoTasks: number;
+  inProgressTasks: number;
+  completedTasks: number;
+  unassignedCount: number;
+  userStats: UserStat[];
+}
+
+interface OverallStat {
+  totalProjects: number;
+  totalTasks: number;
+  todoTasks: number;
+  inProgressTasks: number;
+  completedTasks: number;
+}
+
+// ─── Custom tooltip ─────────────────────────────────────────────────────────────
+interface TooltipProps {
+  active?: boolean;
+  payload?: Array<{ name: string; value: number; fill: string }>;
+  label?: string;
+}
+
+function CustomTooltip({ active, payload, label }: TooltipProps) {
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-[#111] border border-white/10 rounded-xl p-3 text-xs shadow-2xl">
       <p className="text-white font-bold mb-1.5">{label}</p>
-      {payload.map((p: any) => (
+      {payload.map((p) => (
         <p key={p.name} style={{ color: p.fill }} className="font-medium">
           {p.name}: <span className="text-white">{p.value}</span>
         </p>
@@ -51,8 +91,13 @@ function RingProgress({ pct, color, size = 80 }: { pct: number; color: string; s
   );
 }
 
+interface Project {
+  id: string;
+  name: string;
+}
+
 // ─── Member card ────────────────────────────────────────────────────────────────
-function MemberCard({ u, rank, totalProjectTasks }: { u: any; rank: number; totalProjectTasks: number }) {
+function MemberCard({ u, rank, totalProjectTasks }: { u: UserStat; rank: number; totalProjectTasks: number }) {
   const avatarBg = AVATAR_PALETTE[(rank - 1) % AVATAR_PALETTE.length];
   const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null;
 
@@ -145,14 +190,15 @@ function MemberCard({ u, rank, totalProjectTasks }: { u: any; rank: number; tota
 // ─── Main dashboard ─────────────────────────────────────────────────────────────
 export default function StatsDashboard() {
   const [isMounted, setIsMounted] = useState(false);
-  const [overall, setOverall] = useState<any>(null);
-  const [projects, setProjects] = useState<any[]>([]);
+  const [overall, setOverall] = useState<OverallStat | null>(null);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
-  const [projectStats, setProjectStats] = useState<any>(null);
+  const [projectStats, setProjectStats] = useState<ProjectStat | null>(null);
   const [loadingProject, setLoadingProject] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsMounted(true);
     async function init() {
       const [overallData, projectsData] = await Promise.all([
@@ -169,6 +215,7 @@ export default function StatsDashboard() {
 
   useEffect(() => {
     if (!selectedProjectId) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadingProject(true);
     getProjectStats(selectedProjectId).then(data => {
       setProjectStats(data);
@@ -200,7 +247,7 @@ export default function StatsDashboard() {
     { name: 'To Do',       value: projectStats.todoTasks,       fill: STATUS_COLORS.todo },
   ].filter(d => d.value > 0) : [];
 
-  const barData = projectStats?.userStats?.filter((u: any) => u.total > 0) ?? [];
+  const barData = projectStats?.userStats?.filter((u: UserStat) => u.total > 0) ?? [];
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
@@ -383,7 +430,7 @@ export default function StatsDashboard() {
             </GlassCard>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {projectStats.userStats.map((u: any, i: number) => (
+              {projectStats.userStats.map((u: UserStat, i: number) => (
                 <MemberCard
                   key={u.id}
                   u={u}
