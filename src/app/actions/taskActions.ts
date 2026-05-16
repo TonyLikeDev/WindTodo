@@ -55,6 +55,9 @@ export async function createTask(title: string, listId: string, assigneeId?: str
 export async function updateTask(taskId: string, data: { title?: string, assigneeId?: string | null, status?: 'TODO' | 'IN_PROGRESS' | 'DONE' }) {
   const userId = await requireUserId()
   
+  const existing = await prisma.task.findUnique({ where: { id: taskId } })
+  if (!existing) return null
+
   const task = await prisma.task.update({
     where: { id: taskId },
     data,
