@@ -11,6 +11,7 @@ export default function TasksPage() {
           title="All Tasks" 
           listId="all_tasks"
           placeholder="Add a new task..." 
+          hideInput={true}
         />
         <div className="glass p-6 rounded-2xl flex flex-col items-center justify-center text-center">
             <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-4 border border-white/10">

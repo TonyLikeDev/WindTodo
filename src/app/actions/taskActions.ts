@@ -15,6 +15,44 @@ export async function getTasks(listId: string) {
   const user = await syncUser()
   if (!user) return []
 
+  if (listId === 'recent_assignments') {
+    return prisma.task.findMany({
+      where: {
+        OR: [
+          { assigneeId: user.id },
+          { userId: user.id }
+        ]
+      },
+      include: {
+        creator: true,
+        assignee: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    })
+  }
+
+  if (listId === 'all_tasks') {
+    return prisma.task.findMany({
+      where: {
+        list: {
+          project: {
+            OR: [
+              { userId: user.id },
+              { members: { some: { id: user.id } } }
+            ]
+          }
+        }
+      },
+      include: {
+        creator: true,
+        assignee: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    })
+  }
+
   return prisma.task.findMany({
     where: { listId },
     include: {

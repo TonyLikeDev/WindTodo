@@ -27,6 +27,7 @@ export default function Dashboard() {
           title="Recent Assignments" 
           listId="recent_assignments" 
           placeholder="New quick task..." 
+          hideInput={true}
         />
         <div className="glass p-8 rounded-3xl border border-white/5 bg-white/[0.02] flex flex-col items-center justify-center text-center">
           <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mb-6 border border-white/10 shadow-xl">

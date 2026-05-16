@@ -15,7 +15,7 @@ type Task = {
   createdAt: Date;
 };
 
-export default function TaskList({ title, listId, placeholder, bgColor }: { title: string, listId: string, placeholder: string, bgColor?: string }) {
+export default function TaskList({ title, listId, placeholder, bgColor, hideInput = false }: { title: string, listId: string, placeholder: string, bgColor?: string, hideInput?: boolean }) {
   const [inputValue, setInputValue] = useState('');
   
   const { data: tasks = [], mutate, isLoading } = useSWR<Task[]>(listId, getTasks, {
@@ -119,22 +119,24 @@ export default function TaskList({ title, listId, placeholder, bgColor }: { titl
         )}
       </div>
 
-      <div className="mt-auto relative group-focus-within/list:ring-2 ring-white/10 rounded-xl transition-all">
-        <input
-          type="text"
-          placeholder={placeholder}
-          className="w-full bg-black/40 border border-white/10 rounded-xl py-3 pl-4 pr-12 text-sm text-gray-200 placeholder-gray-500 focus:outline-none transition-all"
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') handleAddTask(); }}
-        />
-        <button 
-          onClick={handleAddTask}
-          className="absolute right-2 top-2 p-1.5 bg-white/5 hover:bg-white text-gray-400 hover:text-black rounded-lg transition-all"
-        >
-          <Plus className="w-5 h-5" />
-        </button>
-      </div>
+      {!hideInput && (
+        <div className="mt-auto relative group-focus-within/list:ring-2 ring-white/10 rounded-xl transition-all">
+          <input
+            type="text"
+            placeholder={placeholder}
+            className="w-full bg-black/40 border border-white/10 rounded-xl py-3 pl-4 pr-12 text-sm text-gray-200 placeholder-gray-500 focus:outline-none transition-all"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleAddTask(); }}
+          />
+          <button 
+            onClick={handleAddTask}
+            className="absolute right-2 top-2 p-1.5 bg-white/5 hover:bg-white text-gray-400 hover:text-black rounded-lg transition-all"
+          >
+            <Plus className="w-5 h-5" />
+          </button>
+        </div>
+      )}
     </GlassCard>
   );
 }
