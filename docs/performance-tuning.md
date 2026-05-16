@@ -29,8 +29,11 @@ queries; keep the direct endpoint for migrations only.
 # App queries — transaction-mode pooler. <region> matches your Supabase project.
 DATABASE_URL="postgresql://postgres.<project-ref>:<password>@aws-1-<region>.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1"
 
-# Migrations only — direct, session-mode connection.
-DIRECT_URL="postgresql://postgres:<password>@db.<project-ref>.supabase.co:5432/postgres"
+# Migrations / DDL — session-mode pooler (port 5432). Use the session pooler,
+# NOT the direct `db.<ref>.supabase.co` host: the direct host is IPv6-only by
+# default and Vercel build machines are IPv4-only, so `prisma db push` /
+# `prisma migrate deploy` from CI will fail with P1001 against the direct URL.
+DIRECT_URL="postgresql://postgres.<project-ref>:<password>@aws-1-<region>.pooler.supabase.com:5432/postgres"
 ```
 
 `pgbouncer=true` tells Prisma to disable prepared statements (PgBouncer

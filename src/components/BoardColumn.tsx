@@ -47,6 +47,13 @@ export const LIST_COLORS = [
 ];
 export const DEFAULT_LIST_COLOR = LIST_COLORS[0].value;
 
+const PRIORITY_COLOR: Record<'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT', string> = {
+  LOW:    '#22c55e',
+  MEDIUM: '#3b82f6',
+  HIGH:   '#eab308',
+  URGENT: '#ef4444',
+};
+
 // Returns theme colours/label based on column name for workflow columns
 function getColumnTheme(name: string) {
   const n = name.toLowerCase().trim();
@@ -408,11 +415,22 @@ export default function BoardColumn({
                   >
                     {/* Task title row */}
                     <div className="flex items-start justify-between gap-2">
-                      <span className={`break-words flex-1 leading-snug transition-all text-sm ${
-                        t.status === 'DONE' ? 'line-through text-gray-500' : 'text-gray-100'
-                      }`}>
-                        {t.title}
-                      </span>
+                      <div className="flex items-start gap-2 flex-1 min-w-0">
+                        <span
+                          aria-label={`${t.priority.toLowerCase()} priority`}
+                          title={`${t.priority.charAt(0) + t.priority.slice(1).toLowerCase()} priority`}
+                          className="inline-block w-6 h-2.5 rounded-full border flex-shrink-0 mt-1.5"
+                          style={{
+                            background: `${PRIORITY_COLOR[t.priority]}26`,
+                            borderColor: `${PRIORITY_COLOR[t.priority]}99`,
+                          }}
+                        />
+                        <span className={`break-words flex-1 leading-snug transition-all text-sm ${
+                          t.status === 'DONE' ? 'line-through text-gray-500' : 'text-gray-100'
+                        }`}>
+                          {t.title}
+                        </span>
+                      </div>
                       <button
                         onPointerDown={(e) => e.stopPropagation()}
                         onClick={() => remove(t.id)}

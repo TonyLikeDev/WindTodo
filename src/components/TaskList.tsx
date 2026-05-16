@@ -12,7 +12,15 @@ type Task = {
   listId: string;
   userId: string;
   status: 'TODO' | 'IN_PROGRESS' | 'DONE';
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
   createdAt: Date;
+};
+
+const PRIORITY_COLOR: Record<Task['priority'], string> = {
+  LOW:    '#22c55e',
+  MEDIUM: '#3b82f6',
+  HIGH:   '#eab308',
+  URGENT: '#ef4444',
 };
 
 export default function TaskList({ title, listId, placeholder, bgColor }: { title: string, listId: string, placeholder: string, bgColor?: string }) {
@@ -28,13 +36,14 @@ export default function TaskList({ title, listId, placeholder, bgColor }: { titl
       const newTitle = inputValue.trim();
       setInputValue('');
       
-      const optimistic: Task = { 
-        id: `temp-${Date.now()}`, 
-        title: newTitle, 
-        listId, 
-        userId: 'temp', 
+      const optimistic: Task = {
+        id: `temp-${Date.now()}`,
+        title: newTitle,
+        listId,
+        userId: 'temp',
         status: 'TODO',
-        createdAt: new Date() 
+        priority: 'MEDIUM',
+        createdAt: new Date()
       };
       
       mutate([...tasks, optimistic], false);
@@ -85,9 +94,20 @@ export default function TaskList({ title, listId, placeholder, bgColor }: { titl
         {tasks.map(task => (
           <div key={task.id} className={`bg-white/5 border border-white/5 p-3 rounded-xl flex items-center justify-between group transition-all hover:bg-white/10 ${task.status === 'DONE' ? 'opacity-50' : 'opacity-100'} ${task.id.startsWith('temp-') ? 'animate-pulse' : ''}`}>
             <div className="flex flex-col gap-2 min-w-0 flex-1">
-              <span className={`text-sm truncate ${task.status === 'DONE' ? 'line-through text-gray-500' : 'text-gray-200'}`}>
-                {task.title}
-              </span>
+              <div className="flex items-center gap-2 min-w-0">
+                <span
+                  aria-label={`${task.priority.toLowerCase()} priority`}
+                  title={`${task.priority.charAt(0) + task.priority.slice(1).toLowerCase()} priority`}
+                  className="inline-block w-6 h-2.5 rounded-full border flex-shrink-0"
+                  style={{
+                    background: `${PRIORITY_COLOR[task.priority]}26`,
+                    borderColor: `${PRIORITY_COLOR[task.priority]}99`,
+                  }}
+                />
+                <span className={`text-sm truncate ${task.status === 'DONE' ? 'line-through text-gray-500' : 'text-gray-200'}`}>
+                  {task.title}
+                </span>
+              </div>
               <div className="flex items-center gap-2">
                 <select
                   value={task.status}
