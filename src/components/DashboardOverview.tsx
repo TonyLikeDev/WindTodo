@@ -10,7 +10,8 @@ interface DashboardStats {
   todoTasks: number;
 }
 
-export default function WelcomeWidget({ userName, stats }: { userName: string, stats: DashboardStats }) {
+export default function WelcomeWidget({ userName, stats }: { userName: string, stats: DashboardStats | null }) {
+
   const [greeting] = useState(() => {
     const hours = new Date().getHours();
     if (hours >= 12 && hours < 17) return 'Good Afternoon';
@@ -19,9 +20,10 @@ export default function WelcomeWidget({ userName, stats }: { userName: string, s
   });
   const [time, setTime] = useState('');
   
-  const completionRate = stats?.totalTasks > 0 
+  const completionRate = (stats && stats.totalTasks > 0) 
     ? Math.round((stats.completedTasks / stats.totalTasks) * 100) 
     : 0;
+
 
   useEffect(() => {
     const updateTime = () => {
@@ -112,7 +114,8 @@ export default function WelcomeWidget({ userName, stats }: { userName: string, s
   );
 }
 
-export function OverviewKPI({ stats }: { stats: DashboardStats }) {
+export function OverviewKPI({ stats }: { stats: DashboardStats | null }) {
+
 
   const items = [
     { 
