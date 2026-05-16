@@ -37,11 +37,15 @@ export default function TaskList({ title, listId, placeholder, bgColor }: { titl
         createdAt: new Date() 
       };
       
+      const isVirtualList = listId === 'recent_assignments' || listId === 'all_tasks';
+      if (isVirtualList) return;
+      
       mutate([...tasks, optimistic], false);
       await createTask(newTitle, listId);
       mutate();
     }
   };
+
 
   const updateStatus = async (taskId: string, newStatus: 'TODO' | 'IN_PROGRESS' | 'DONE') => {
     mutate(tasks.map(t => t.id === taskId ? { ...t, status: newStatus } : t), false);
@@ -119,22 +123,25 @@ export default function TaskList({ title, listId, placeholder, bgColor }: { titl
         )}
       </div>
 
-      <div className="mt-auto relative group-focus-within/list:ring-2 ring-white/20 rounded-2xl transition-all">
-        <input
-          type="text"
-          placeholder={placeholder}
-          className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-5 pr-14 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:bg-white/[0.08] transition-all"
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') handleAddTask(); }}
-        />
-        <button 
-          onClick={handleAddTask}
-          className="absolute right-2 top-2 bottom-2 px-3 bg-white/5 hover:bg-white text-gray-400 hover:text-black rounded-xl transition-all flex items-center justify-center"
-        >
-          <Plus className="w-5 h-5" />
-        </button>
-      </div>
+      {!(listId === 'recent_assignments' || listId === 'all_tasks') && (
+        <div className="mt-auto relative group-focus-within/list:ring-2 ring-white/20 rounded-2xl transition-all">
+          <input
+            type="text"
+            placeholder={placeholder}
+            className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-5 pr-14 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:bg-white/[0.08] transition-all"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleAddTask(); }}
+          />
+          <button 
+            onClick={handleAddTask}
+            className="absolute right-2 top-2 bottom-2 px-3 bg-white/5 hover:bg-white text-gray-400 hover:text-black rounded-xl transition-all flex items-center justify-center"
+          >
+            <Plus className="w-5 h-5" />
+          </button>
+        </div>
+      )}
+
     </GlassCard>
   );
 }
