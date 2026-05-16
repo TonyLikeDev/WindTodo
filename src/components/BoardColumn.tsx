@@ -74,6 +74,8 @@ export default function BoardColumn({
   onRemoveList,
   onRename,
   onChangeColor,
+  onHeaderPointerDown,
+  isDragging = false,
   isDraft = false,
   onDraftCommit,
   onDraftCancel,
@@ -86,6 +88,8 @@ export default function BoardColumn({
   onRemoveList?: () => void;
   onRename?: (newName: string) => void;
   onChangeColor?: (color: string) => void;
+  onHeaderPointerDown?: (e: React.PointerEvent<HTMLDivElement>) => void;
+  isDragging?: boolean;
   isDraft?: boolean;
   onDraftCommit?: (name: string) => void;
   onDraftCancel?: () => void;
@@ -245,11 +249,21 @@ export default function BoardColumn({
         isHoveredHere && draggingTaskId
           ? 'border-white/40 ring-2 ring-white/20'
           : 'border-white/10'
-      }`}
+      } ${isDragging ? 'opacity-40' : ''}`}
       style={{ background: color }}
     >
       {/* Column Header */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3">
+      <div
+        onPointerDown={(e) => {
+          if (!onHeaderPointerDown || showRenameInput || isDraft) return;
+          if (e.button !== 0) return;
+          if ((e.target as HTMLElement).closest('button, input, select, [data-no-drag]')) return;
+          onHeaderPointerDown(e);
+        }}
+        className={`flex items-center justify-between px-4 pt-4 pb-3 ${
+          onHeaderPointerDown && !showRenameInput && !isDraft ? 'cursor-grab active:cursor-grabbing' : ''
+        }`}
+      >
         <div className="flex items-center gap-2 min-w-0 flex-1">
           {/* Workflow colour dot */}
           {colTheme && !showRenameInput && (

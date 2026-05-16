@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { MouseEvent as ReactMouseEvent, ReactNode, useCallback, useMemo, useRef, useState } from 'react';
+import { MouseEvent as ReactMouseEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import useSWR, { mutate as globalMutate } from 'swr';
 import BoardColumn, { DEFAULT_LIST_COLOR } from './BoardColumn';
 import { BoardDragProvider, DraggableTask } from './BoardDragContext';
@@ -12,10 +12,11 @@ import {
   getBoardLists,
   getProjects,
   renameBoardList,
+  reorderBoardLists,
   updateBoardListColor,
 } from '@/app/actions/projectActions';
-import { getAllUsers, addMemberToProject, removeMemberFromProject } from '@/app/actions/userActions';
-import { Users, Plus, ChevronLeft, BarChart2 } from 'lucide-react';
+import { getAllUsers, addMemberToProject, removeMemberFromProject, addUserByEmail, getAuthUser, setMemberRole } from '@/app/actions/userActions';
+import { Plus, ChevronLeft, BarChart2, X, ChevronDown, Check, Trash2 } from 'lucide-react';
 
 type UserProfile = {
   id: string;
@@ -24,12 +25,22 @@ type UserProfile = {
   email: string;
 };
 
+type ProjectRole = 'ADMIN' | 'MEMBER';
+
+type ProjectMembership = {
+  id: string;
+  projectId: string;
+  userId: string;
+  role: ProjectRole;
+  user: UserProfile;
+};
+
 type Project = {
   id: string;
   name: string;
   color: string;
   userId: string;
-  members: UserProfile[];
+  members: ProjectMembership[];
   createdAt: Date;
 };
 
@@ -43,6 +54,13 @@ type BoardList = {
   createdAt: Date;
 };
 
+const AVATAR_PALETTE = ['#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#06b6d4', '#a855f7'];
+function avatarBgFor(id: string): string {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return AVATAR_PALETTE[h % AVATAR_PALETTE.length];
+}
+
 export default function ProjectBoard({ projectId }: { projectId: string }) {
   const { data: projects = [], mutate: mutateProjects, isLoading: projectsLoading } = useSWR<Project[]>(
     'projects',
@@ -50,6 +68,7 @@ export default function ProjectBoard({ projectId }: { projectId: string }) {
     { revalidateOnFocus: false, dedupingInterval: 10000 }
   );
   const { data: allUsers = [] } = useSWR('users', getAllUsers, { revalidateOnFocus: false, dedupingInterval: 60000 });
+  const { data: me } = useSWR('auth-user', getAuthUser, { revalidateOnFocus: false, dedupingInterval: 60000 });
   
   const { data: lists = [], mutate, isLoading: listsLoading } = useSWR<BoardList[]>(
     `board:${projectId}`,
@@ -58,12 +77,39 @@ export default function ProjectBoard({ projectId }: { projectId: string }) {
   );
   const [draft, setDraft] = useState<{ id: string; color: string; index: number } | null>(null);
   const [showMemberModal, setShowMemberModal] = useState(false);
+  const [shareInput, setShareInput] = useState('');
+  const [inviteRole, setInviteRole] = useState<'member' | 'admin'>('member');
+  const [shareError, setShareError] = useState<string | null>(null);
+  const [shareBusy, setShareBusy] = useState(false);
+  const [roleMenuFor, setRoleMenuFor] = useState<string | null>(null);
+  const roleMenuRef = useRef<HTMLDivElement>(null);
+  const [draggingListId, setDraggingListId] = useState<string | null>(null);
+  const [listDropIndex, setListDropIndex] = useState<number | null>(null);
+  const [listDragGhost, setListDragGhost] = useState<{
+    pos: { x: number; y: number };
+    pointerOffset: { x: number; y: number };
+    width: number;
+    title: string;
+    color: string;
+    taskCount: number;
+  } | null>(null);
   const listsContainerRef = useRef<HTMLDivElement>(null);
+  const lastDropIndexRef = useRef<number | null>(null);
+  const LIST_DRAG_THRESHOLD_PX = 6;
 
   const project = useMemo(
     () => projects.find((p) => p.id === projectId) ?? null,
     [projects, projectId],
   );
+  const memberUsers = useMemo<UserProfile[]>(
+    () => (project?.members ?? []).map((m) => m.user),
+    [project?.members],
+  );
+  const myMembership = useMemo(
+    () => project?.members.find((m) => m.userId === me?.id) ?? null,
+    [project?.members, me?.id],
+  );
+  const iAmAdmin = !!project && (project.userId === me?.id || myMembership?.role === 'ADMIN');
 
   const startDraft = (index: number) => {
     if (draft) return;
@@ -101,11 +147,10 @@ export default function ProjectBoard({ projectId }: { projectId: string }) {
     mutate();
   };
 
-  const handleAddMember = async (userId: string) => {
+  const handleAddMember = async (userId: string, role: 'ADMIN' | 'MEMBER' = 'MEMBER') => {
     try {
-      await addMemberToProject(projectId, userId);
+      await addMemberToProject(projectId, userId, role);
       await mutateProjects();
-      console.log('Member added successfully:', userId);
     } catch (err) {
       console.error('Failed to add member:', err);
     }
@@ -118,6 +163,65 @@ export default function ProjectBoard({ projectId }: { projectId: string }) {
       console.log('Member removed successfully:', userId);
     } catch (err) {
       console.error('Failed to remove member:', err);
+    }
+  };
+
+  const handleSetMemberRole = async (userId: string, role: 'ADMIN' | 'MEMBER') => {
+    try {
+      await setMemberRole(projectId, userId, role);
+      await mutateProjects();
+    } catch (err) {
+      console.error('Failed to set role:', err);
+    } finally {
+      setRoleMenuFor(null);
+    }
+  };
+
+  // Close the per-member role popup when clicking outside.
+  useEffect(() => {
+    if (!roleMenuFor) return;
+    const onDown = (e: PointerEvent) => {
+      if (!roleMenuRef.current?.contains(e.target as Node)) setRoleMenuFor(null);
+    };
+    document.addEventListener('pointerdown', onDown);
+    return () => document.removeEventListener('pointerdown', onDown);
+  }, [roleMenuFor]);
+
+  const handleShareInvite = async () => {
+    const q = shareInput.trim();
+    if (!q || !project) return;
+    setShareError(null);
+    setShareBusy(true);
+    try {
+      const qLower = q.toLowerCase();
+      // Try existing users first: exact email, then name contains.
+      const match =
+        allUsers.find((u) => u.email.toLowerCase() === qLower) ??
+        allUsers.find((u) => (u.name ?? '').toLowerCase().includes(qLower));
+      const role = inviteRole === 'admin' ? 'ADMIN' : 'MEMBER';
+      if (match) {
+        if (project.members.some((m) => m.userId === match.id)) {
+          setShareError('Already a member');
+          return;
+        }
+        await handleAddMember(match.id, role);
+        setShareInput('');
+        return;
+      }
+      // No match — invite by email.
+      if (!q.includes('@')) {
+        setShareError('No user found. Enter an email to invite.');
+        return;
+      }
+      const result = await addUserByEmail(q);
+      if (!result.ok) {
+        setShareError(result.error);
+        return;
+      }
+      await handleAddMember(result.user.id, role);
+      setShareInput('');
+    } finally {
+      setShareBusy(false);
     }
   };
 
@@ -143,6 +247,120 @@ export default function ProjectBoard({ projectId }: { projectId: string }) {
     );
     await updateBoardListColor(id, color);
     mutate();
+  };
+
+  const handleListDragStart = (listId: string, e: React.PointerEvent<HTMLDivElement>) => {
+    if (draft) return;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    let started = false;
+
+    // Cache the column wrapper rect so the ghost follows the cursor with the
+    // same grab offset the user started with.
+    const columnEl = listsContainerRef.current?.querySelector(
+      `[data-list-id="${listId}"]`,
+    ) as HTMLElement | null;
+    const rect = columnEl?.getBoundingClientRect();
+    const ghostBase = rect
+      ? {
+          pointerOffset: { x: startX - rect.left, y: startY - rect.top },
+          width: rect.width,
+        }
+      : null;
+    const list = lists.find((l) => l.id === listId);
+
+    // Returns the slot where the dragged list should land, expressed as an index
+    // in `lists.filter(l => l.id !== listId)`. commitListReorder consumes that.
+    const computeDropIndex = (clientX: number): number => {
+      const container = listsContainerRef.current;
+      if (!container) return 0;
+      const items = Array.from(container.children) as HTMLElement[];
+      const midpoints: number[] = [];
+      for (const el of items) {
+        if (!el?.dataset?.listId) continue;
+        if (el.dataset.listId === listId) continue;
+        const r = el.getBoundingClientRect();
+        midpoints.push(r.left + r.width / 2);
+      }
+      for (let i = 0; i < midpoints.length; i++) {
+        if (clientX < midpoints[i]) return i;
+      }
+      return midpoints.length;
+    };
+
+    const onMove = (ev: PointerEvent) => {
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      if (!started) {
+        if (dx * dx + dy * dy < LIST_DRAG_THRESHOLD_PX * LIST_DRAG_THRESHOLD_PX) return;
+        started = true;
+        setDraggingListId(listId);
+        document.body.style.userSelect = 'none';
+        document.body.style.cursor = 'grabbing';
+        if (ghostBase && list) {
+          setListDragGhost({
+            pos: { x: ev.clientX, y: ev.clientY },
+            pointerOffset: ghostBase.pointerOffset,
+            width: ghostBase.width,
+            title: list.name,
+            color: list.color,
+            taskCount: 0,
+          });
+        }
+      } else if (ghostBase) {
+        setListDragGhost((prev) =>
+          prev ? { ...prev, pos: { x: ev.clientX, y: ev.clientY } } : prev,
+        );
+      }
+      const idx = computeDropIndex(ev.clientX);
+      lastDropIndexRef.current = idx;
+      setListDropIndex(idx);
+    };
+
+    const cleanup = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', cleanup);
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+      setDraggingListId(null);
+      setListDropIndex(null);
+      setListDragGhost(null);
+      lastDropIndexRef.current = null;
+    };
+
+    const onUp = () => {
+      const dropAt = lastDropIndexRef.current;
+      const wasDragging = started;
+      cleanup();
+      if (wasDragging && dropAt !== null) {
+        void commitListReorder(listId, dropAt);
+      }
+    };
+
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', cleanup);
+  };
+
+  const commitListReorder = async (listId: string, toIndex: number) => {
+    const fromIndex = lists.findIndex((l) => l.id === listId);
+    if (fromIndex === -1) return;
+    // Clamp: when removing the source first, the target index shifts.
+    const without = lists.filter((l) => l.id !== listId);
+    const clamped = Math.max(0, Math.min(toIndex, without.length));
+    if (clamped === fromIndex) return; // no-op
+    const reordered = [
+      ...without.slice(0, clamped),
+      lists[fromIndex],
+      ...without.slice(clamped),
+    ].map((l, i) => ({ ...l, position: i }));
+    mutate(reordered, false);
+    try {
+      await reorderBoardLists(projectId, reordered.map((l) => l.id));
+    } finally {
+      mutate();
+    }
   };
 
   const handleBoardDoubleClick = (e: ReactMouseEvent<HTMLDivElement>) => {
@@ -306,7 +524,7 @@ export default function ProjectBoard({ projectId }: { projectId: string }) {
             <div className="flex items-center gap-4">
               {/* Member Avatars */}
               <div className="flex -space-x-2 overflow-hidden mr-2">
-                {project.members.map((m) => (
+                {project.members.map(({ user: m }) => (
                   <div key={m.id} className="inline-block h-8 w-8 rounded-full ring-2 ring-black bg-gray-800 flex items-center justify-center text-[10px] font-bold text-white border border-white/10" title={m.name || m.email}>
                     {m.avatarUrl ? (
                       <img src={m.avatarUrl} alt={m.name || ''} className="h-full w-full object-cover" />
@@ -353,9 +571,12 @@ export default function ProjectBoard({ projectId }: { projectId: string }) {
               )}
 
               {(() => {
+                const visibleLists = draggingListId
+                  ? lists.filter((l) => l.id !== draggingListId)
+                  : lists;
                 const draftIndex = draft?.index ?? -1;
                 const items: ReactNode[] = [];
-                for (let i = 0; i <= lists.length; i++) {
+                for (let i = 0; i <= visibleLists.length; i++) {
                   if (draft && i === draftIndex) {
                     items.push(
                       <BoardColumn
@@ -366,23 +587,38 @@ export default function ProjectBoard({ projectId }: { projectId: string }) {
                         isDraft
                         onDraftCommit={commitDraft}
                         onDraftCancel={cancelDraft}
-                        members={project.members}
+                        members={memberUsers}
                       />,
                     );
                   }
-                  if (i < lists.length) {
-                    const l = lists[i];
+                  if (!draft && draggingListId && listDropIndex === i) {
                     items.push(
-                      <BoardColumn
-                        key={l.id}
-                        listId={l.id}
-                        title={l.name}
-                        color={l.color}
-                        members={project.members}
-                        onRemoveList={() => handleRemoveList(l.id)}
-                        onRename={(name) => handleRenameList(l.id, name)}
-                        onChangeColor={(c) => handleChangeListColor(l.id, c)}
+                      <div
+                        key={`list-drop-${i}`}
+                        aria-hidden
+                        className="w-1 h-72 rounded-full bg-white/40 self-stretch flex-shrink-0"
                       />,
+                    );
+                  }
+                  if (i < visibleLists.length) {
+                    const l = visibleLists[i];
+                    items.push(
+                      <div
+                        key={l.id}
+                        data-list-id={l.id}
+                        className="flex-shrink-0"
+                      >
+                        <BoardColumn
+                          listId={l.id}
+                          title={l.name}
+                          color={l.color}
+                          members={memberUsers}
+                          onRemoveList={() => handleRemoveList(l.id)}
+                          onRename={(name) => handleRenameList(l.id, name)}
+                          onChangeColor={(c) => handleChangeListColor(l.id, c)}
+                          onHeaderPointerDown={(e) => handleListDragStart(l.id, e)}
+                        />
+                      </div>,
                     );
                   }
                 }
@@ -399,100 +635,203 @@ export default function ProjectBoard({ projectId }: { projectId: string }) {
               </button>
             </div>
           </div>
+
+          {listDragGhost && (
+            <div
+              className="pointer-events-none fixed z-[200] rounded-2xl border border-white/25 shadow-2xl backdrop-blur-md"
+              style={{
+                left: listDragGhost.pos.x - listDragGhost.pointerOffset.x,
+                top: listDragGhost.pos.y - listDragGhost.pointerOffset.y,
+                width: listDragGhost.width,
+                background: listDragGhost.color,
+                transform: 'rotate(3deg)',
+                transformOrigin: 'top left',
+              }}
+            >
+              <div className="px-4 pt-4 pb-3 flex items-center gap-2">
+                <span className="text-sm font-semibold text-white truncate">{listDragGhost.title}</span>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Member Invite Modal Overlay */}
+        {/* Share Board Modal */}
         {showMemberModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setShowMemberModal(false)} />
-            <div className="relative glass w-full max-w-md rounded-3xl border border-white/10 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div
+              className="absolute inset-0 bg-black/60 backdrop-blur-md"
+              onClick={() => setShowMemberModal(false)}
+            />
+            <div className="relative glass w-full max-w-xl rounded-3xl border border-white/10 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
               {/* Header */}
-              <div className="p-6 border-b border-white/5">
-                <h3 className="text-xl font-bold text-white flex items-center gap-3">
-                  <Users className="w-5 h-5 text-gray-400" />
-                  Manage Members
-                </h3>
-                <p className="text-xs text-gray-500 mt-1">Add or remove members from this project.</p>
+              <div className="px-6 pt-5 pb-4 flex items-center justify-between">
+                <h3 className="text-lg font-bold text-white">Share board</h3>
+                <button
+                  onClick={() => setShowMemberModal(false)}
+                  aria-label="Close"
+                  className="p-1.5 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-all"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
 
-              <div className="p-6 max-h-[480px] overflow-y-auto custom-scrollbar space-y-6">
-                {/* Current Members */}
-                <div>
-                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">Current Members ({project.members.length})</p>
-                  <div className="space-y-2">
-                    {project.members.map(m => {
-                      const isCreator = m.id === project.userId;
-                      return (
-                        <div key={m.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
-                          <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold text-white overflow-hidden border border-white/10">
-                              {m.avatarUrl ? <img src={m.avatarUrl} className="w-full h-full object-cover" alt={m.name || ''} /> : (m.name || m.email).charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                              <p className="text-sm font-semibold text-white">{m.name || 'User'}</p>
-                              <p className="text-[10px] text-gray-500">{m.email}</p>
-                            </div>
-                          </div>
-                          {isCreator ? (
-                            <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-full bg-white/10 text-gray-400">Owner</span>
+              {/* Invite row */}
+              <div className="px-6 pb-3">
+                <div className="flex items-stretch gap-2">
+                  <input
+                    type="text"
+                    value={shareInput}
+                    onChange={(e) => {
+                      setShareInput(e.target.value);
+                      if (shareError) setShareError(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        void handleShareInvite();
+                      }
+                    }}
+                    placeholder="Email address or name"
+                    className="flex-1 bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-white/30"
+                  />
+                  <div className="relative">
+                    <select
+                      value={inviteRole}
+                      onChange={(e) => setInviteRole(e.target.value as 'member' | 'admin')}
+                      className="appearance-none bg-black/30 border border-white/10 rounded-lg pl-3 pr-8 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-white/30 cursor-pointer"
+                    >
+                      <option value="member">Member</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                  </div>
+                  <button
+                    onClick={handleShareInvite}
+                    disabled={shareBusy || !shareInput.trim()}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-900/50 disabled:text-white/40 text-white rounded-lg text-sm font-bold transition-all"
+                  >
+                    Share
+                  </button>
+                </div>
+                {shareError && (
+                  <p className="text-xs text-red-400 mt-2">{shareError}</p>
+                )}
+              </div>
+
+              {/* Tabs */}
+              <div className="px-6 border-b border-white/5 flex items-center gap-6">
+                <div className="relative pb-3 text-sm font-bold text-white flex items-center gap-2">
+                  Board members
+                  <span className="text-[10px] font-bold bg-white/10 text-gray-300 px-1.5 py-0.5 rounded">
+                    {project.members.length}
+                  </span>
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white" />
+                </div>
+                <div className="pb-3 text-sm font-medium text-gray-500" title="Coming soon">
+                  Join requests
+                </div>
+              </div>
+
+              {/* Members list */}
+              <div className="px-6 py-4 max-h-[360px] overflow-y-auto custom-scrollbar space-y-3">
+                {project.members.map((membership) => {
+                  const m = membership.user;
+                  const isCreator = m.id === project.userId;
+                  const isYou = me?.id === m.id;
+                  const displayName = m.name || m.email.split('@')[0];
+                  const handle = m.email.split('@')[0];
+                  const initial = displayName.charAt(0).toUpperCase();
+                  const role = membership.role; // ADMIN | MEMBER
+                  const roleLabel = role === 'ADMIN' ? 'Admin' : 'Member';
+                  const canManage = iAmAdmin && !isCreator;
+                  const menuOpen = roleMenuFor === m.id;
+                  return (
+                    <div key={m.id} className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div
+                          className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0 overflow-hidden"
+                          style={{ background: avatarBgFor(m.id) }}
+                        >
+                          {m.avatarUrl ? (
+                            <img src={m.avatarUrl} alt={displayName} className="w-full h-full object-cover" />
                           ) : (
-                            <button
-                              onClick={() => handleRemoveMember(m.id)}
-                              className="p-2 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
-                              title="Remove member"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
+                            initial
                           )}
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-white truncate">
+                            {displayName}
+                            {isYou && <span className="ml-1 text-gray-500 font-normal">(you)</span>}
+                          </p>
+                          <p className="text-xs text-gray-500 truncate">
+                            @{handle} · {isCreator ? 'Workspace admin' : roleLabel}
+                          </p>
+                        </div>
+                      </div>
 
-                {/* Add New Members */}
-                {(() => {
-                  const available = allUsers.filter(u => !project.members.some(m => m.id === u.id));
-                  if (available.length === 0) return null;
-                  return (
-                    <div>
-                      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">Add Members</p>
-                      <div className="space-y-2">
-                        {available.map(u => (
-                          <div key={u.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-white/5 transition-colors border border-transparent hover:border-white/5 group">
-                            <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold text-white overflow-hidden border border-white/5">
-                                {u.avatarUrl ? <img src={u.avatarUrl} className="w-full h-full rounded-full object-cover" alt={u.name || ''} /> : (u.name || u.email).charAt(0).toUpperCase()}
-                              </div>
-                              <div>
-                                <p className="text-sm font-semibold text-white">{u.name || 'User'}</p>
-                                <p className="text-[10px] text-gray-500">{u.email}</p>
-                              </div>
-                            </div>
+                      <div className="relative" ref={menuOpen ? roleMenuRef : undefined}>
+                        {!canManage ? (
+                          <span
+                            className={`px-3 py-1.5 border rounded-lg text-sm font-bold flex items-center gap-1 select-none ${
+                              role === 'ADMIN'
+                                ? 'border-blue-500/40 text-blue-400'
+                                : 'border-white/10 text-gray-300'
+                            }`}
+                          >
+                            {roleLabel}
+                            <ChevronDown className="w-3.5 h-3.5 opacity-40" />
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setRoleMenuFor(menuOpen ? null : m.id)}
+                            className={`px-3 py-1.5 border rounded-lg text-sm font-bold flex items-center gap-1 transition-all ${
+                              role === 'ADMIN'
+                                ? 'border-blue-500/40 text-blue-400 hover:bg-blue-500/10'
+                                : 'border-white/10 text-gray-300 hover:bg-white/5'
+                            }`}
+                          >
+                            {roleLabel}
+                            <ChevronDown className="w-3.5 h-3.5 opacity-70" />
+                          </button>
+                        )}
+
+                        {menuOpen && canManage && (
+                          <div className="absolute right-0 top-full mt-1 z-20 w-48 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150">
                             <button
-                              onClick={() => handleAddMember(u.id)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white text-white hover:text-black rounded-lg transition-all text-xs font-bold"
+                              type="button"
+                              onClick={() => handleSetMemberRole(m.id, 'ADMIN')}
+                              className="w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-white/5 text-white"
                             >
-                              <Plus className="w-3.5 h-3.5" />
-                              Add
+                              <span>Admin</span>
+                              {role === 'ADMIN' && <Check className="w-4 h-4 text-blue-400" />}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleSetMemberRole(m.id, 'MEMBER')}
+                              className="w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-white/5 text-white"
+                            >
+                              <span>Member</span>
+                              {role === 'MEMBER' && <Check className="w-4 h-4 text-blue-400" />}
+                            </button>
+                            <div className="h-px bg-white/5" />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setRoleMenuFor(null);
+                                handleRemoveMember(m.id);
+                              }}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              Remove from board
                             </button>
                           </div>
-                        ))}
+                        )}
                       </div>
                     </div>
                   );
-                })()}
-              </div>
-
-              <div className="p-4 bg-black/20 flex justify-end border-t border-white/5">
-                <button
-                  onClick={() => setShowMemberModal(false)}
-                  className="px-6 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-sm font-bold transition-all"
-                >
-                  Done
-                </button>
+                })}
               </div>
             </div>
           </div>

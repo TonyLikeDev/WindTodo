@@ -1,7 +1,6 @@
 'use server'
 
 import prisma from '@/lib/prisma'
-import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { getAuthUser, syncUser } from './userActions'
 
@@ -12,6 +11,36 @@ async function requireUserId() {
   return user.id
 }
 
+// The project creator is always an implicit ADMIN whether or not a
+// ProjectMember row exists for them. Everyone else needs role === ADMIN.
+async function requireProjectAdmin(projectId: string, userId: string) {
+  const project = await prisma.project.findFirst({
+    where: {
+      id: projectId,
+      OR: [
+        { userId },
+        { members: { some: { userId, role: 'ADMIN' } } },
+      ],
+    },
+    select: { id: true },
+  })
+  if (!project) throw new Error('Not authorized: admin required')
+}
+
+async function requireProjectAccess(projectId: string, userId: string) {
+  const project = await prisma.project.findFirst({
+    where: {
+      id: projectId,
+      OR: [
+        { userId },
+        { members: { some: { userId } } },
+      ],
+    },
+    select: { id: true },
+  })
+  if (!project) throw new Error('Not authorized for this project')
+}
+
 export async function getProjects() {
   const user = await getAuthUser()
   if (!user) return []
@@ -20,14 +49,14 @@ export async function getProjects() {
     where: {
       OR: [
         { userId: user.id },
-        { members: { some: { id: user.id } } }
-      ]
+        { members: { some: { userId: user.id } } },
+      ],
     },
     include: {
-      members: true,
+      members: { include: { user: true } },
       _count: {
-        select: { lists: true }
-      }
+        select: { lists: true },
+      },
     },
     orderBy: { createdAt: 'asc' },
   })
@@ -36,19 +65,18 @@ export async function getProjects() {
 export async function createProject(name: string, color: string) {
   const userId = await requireUserId()
 
-  // Create project with creator as first member
   const project = await prisma.project.create({
-    data: { 
-      name, 
-      color, 
+    data: {
+      name,
+      color,
       userId,
       members: {
-        connect: { id: userId }
-      }
+        create: { userId, role: 'ADMIN' },
+      },
     },
   })
 
-  // Auto-create the 3 default workflow columns
+  // Auto-create the 3 default workflow columns.
   const DEFAULT_COLUMNS = [
     { name: 'To Do',       color: 'rgba(100, 116, 139, 0.15)', position: 0 },
     { name: 'In Progress', color: 'rgba(59, 130, 246, 0.15)',  position: 1 },
@@ -71,17 +99,15 @@ export async function createProject(name: string, color: string) {
 
 export async function deleteProject(projectId: string) {
   const userId = await requireUserId()
-  const lists = await prisma.boardList.findMany({
-    where: { projectId, userId },
+  // Only the creator can delete a project (admin role isn't enough).
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, userId },
     select: { id: true },
   })
-  const listIds = lists.map((l) => l.id)
-  if (listIds.length > 0) {
-    await prisma.task.deleteMany({
-      where: { userId, listId: { in: listIds } },
-    })
-  }
-  await prisma.project.deleteMany({ where: { id: projectId, userId } })
+  if (!project) throw new Error('Only the creator can delete this project')
+  // BoardList → Task cascade handles the rest; the explicit deletes are
+  // defensive in case cascades aren't configured everywhere.
+  await prisma.project.delete({ where: { id: projectId } })
   revalidatePath('/dashboard')
 }
 
@@ -89,20 +115,18 @@ export async function getBoardLists(projectId: string) {
   const user = await getAuthUser()
   if (!user) return []
 
-  // Check user is member or creator of this project
   const project = await prisma.project.findFirst({
     where: {
       id: projectId,
       OR: [
         { userId: user.id },
-        { members: { some: { id: user.id } } },
+        { members: { some: { userId: user.id } } },
       ],
     },
     select: { id: true },
   })
   if (!project) return []
 
-  // Return ALL lists in the project (not filtered by userId)
   return prisma.boardList.findMany({
     where: { projectId },
     orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
@@ -116,16 +140,11 @@ export async function createBoardList(
   targetIndex?: number,
 ) {
   const userId = await requireUserId()
-
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, userId },
-    select: { id: true },
-  })
-  if (!project) throw new Error('Project not found')
+  await requireProjectAdmin(projectId, userId)
 
   const list = await prisma.$transaction(async (tx) => {
     const existing = await tx.boardList.findMany({
-      where: { projectId, userId },
+      where: { projectId },
       orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
       select: { id: true },
     })
@@ -167,12 +186,13 @@ export async function createBoardList(
 export async function updateBoardListColor(listId: string, color: string) {
   const userId = await requireUserId()
   const list = await prisma.boardList.findFirst({
-    where: { id: listId, userId },
+    where: { id: listId },
     select: { projectId: true },
   })
   if (!list) return
-  await prisma.boardList.updateMany({
-    where: { id: listId, userId },
+  await requireProjectAdmin(list.projectId, userId)
+  await prisma.boardList.update({
+    where: { id: listId },
     data: { color },
   })
   revalidatePath(`/projects/${list.projectId}`)
@@ -183,25 +203,52 @@ export async function renameBoardList(listId: string, name: string) {
   const trimmed = name.trim()
   if (!trimmed) return
   const list = await prisma.boardList.findFirst({
-    where: { id: listId, userId },
+    where: { id: listId },
     select: { projectId: true },
   })
   if (!list) return
-  await prisma.boardList.updateMany({
-    where: { id: listId, userId },
+  await requireProjectAdmin(list.projectId, userId)
+  await prisma.boardList.update({
+    where: { id: listId },
     data: { name: trimmed },
   })
   revalidatePath(`/projects/${list.projectId}`)
 }
 
+export async function reorderBoardLists(projectId: string, orderedListIds: string[]) {
+  const userId = await requireUserId()
+  // Any member can reorder columns (same scope as moving tasks).
+  await requireProjectAccess(projectId, userId)
+
+  const lists = await prisma.boardList.findMany({
+    where: { projectId },
+    select: { id: true },
+  })
+  const projectIds = new Set(lists.map((l) => l.id))
+  if (
+    orderedListIds.length !== lists.length ||
+    !orderedListIds.every((id) => projectIds.has(id))
+  ) {
+    throw new Error('Invalid list ids')
+  }
+
+  await prisma.$transaction(
+    orderedListIds.map((id, i) =>
+      prisma.boardList.update({ where: { id }, data: { position: i } }),
+    ),
+  )
+  revalidatePath(`/projects/${projectId}`)
+}
+
 export async function deleteBoardList(listId: string) {
   const userId = await requireUserId()
   const list = await prisma.boardList.findFirst({
-    where: { id: listId, userId },
+    where: { id: listId },
     select: { projectId: true },
   })
   if (!list) return
-  await prisma.task.deleteMany({ where: { userId, listId } })
-  await prisma.boardList.deleteMany({ where: { id: listId, userId } })
-  revalidatePath(`/dashboard/projects/${list.projectId}`)
+  await requireProjectAdmin(list.projectId, userId)
+  // Task cascade on BoardList delete (schema has onDelete: Cascade).
+  await prisma.boardList.delete({ where: { id: listId } })
+  revalidatePath(`/projects/${list.projectId}`)
 }
