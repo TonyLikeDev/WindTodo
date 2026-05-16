@@ -74,16 +74,10 @@ export const syncUser = cache(async (): Promise<AuthUser | null> => {
       await tx.task.updateMany({ where: { assigneeId: pending.id }, data: { assigneeId: u.id } });
       await tx.project.updateMany({ where: { userId: pending.id }, data: { userId: u.id } });
       await tx.boardList.updateMany({ where: { userId: pending.id }, data: { userId: u.id } });
-      const memberProjects = await tx.project.findMany({
-        where: { members: { some: { id: pending.id } } },
-        select: { id: true },
+      await tx.projectMember.updateMany({
+        where: { userId: pending.id },
+        data: { userId: u.id },
       });
-      for (const p of memberProjects) {
-        await tx.project.update({
-          where: { id: p.id },
-          data: { members: { disconnect: { id: pending.id }, connect: { id: u.id } } },
-        });
-      }
       await tx.user.delete({ where: { id: pending.id } });
     });
   } else {
@@ -130,6 +124,23 @@ export async function addUserByEmail(emailRaw: string) {
   return { ok: true as const, user };
 }
 
+// Any admin (creator or ProjectMember with role=ADMIN) may manage membership
+// and roles for a project.
+async function assertProjectAdmin(projectId: string, userId: string) {
+  const project = await prisma.project.findFirst({
+    where: {
+      id: projectId,
+      OR: [
+        { userId },
+        { members: { some: { userId, role: 'ADMIN' } } },
+      ],
+    },
+    select: { id: true, userId: true },
+  });
+  if (!project) throw new Error('Not authorized to manage this project');
+  return project;
+}
+
 export async function getProjectMembers(projectId: string) {
   const me = await getAuthUser();
   if (!me) return [];
@@ -138,57 +149,63 @@ export async function getProjectMembers(projectId: string) {
       id: projectId,
       OR: [
         { userId: me.id },
-        { members: { some: { id: me.id } } },
+        { members: { some: { userId: me.id } } },
       ],
     },
-    include: { members: true },
+    include: { members: { include: { user: true } } },
   });
-  return project?.members || [];
+  return project?.members ?? [];
 }
 
-export async function addMemberToProject(projectId: string, userId: string) {
+export async function addMemberToProject(
+  projectId: string,
+  userId: string,
+  role: 'ADMIN' | 'MEMBER' = 'MEMBER',
+) {
   const me = await syncUser();
   if (!me) throw new Error('Unauthorized');
-  // Only the project creator can manage membership.
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, userId: me.id },
-    select: { id: true },
-  });
-  if (!project) throw new Error('Not authorized to manage this project');
+  await assertProjectAdmin(projectId, me.id);
 
-  const result = await prisma.project.update({
-    where: { id: projectId },
-    data: {
-      members: {
-        connect: { id: userId },
-      },
-    },
-    include: { members: true },
+  await prisma.projectMember.upsert({
+    where: { projectId_userId: { projectId, userId } },
+    update: { role },
+    create: { projectId, userId, role },
   });
   revalidatePath(`/projects/${projectId}`);
   revalidatePath('/dashboard');
-  return result;
 }
 
 export async function removeMemberFromProject(projectId: string, userId: string) {
   const me = await syncUser();
   if (!me) throw new Error('Unauthorized');
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, userId: me.id },
-    select: { id: true },
-  });
-  if (!project) throw new Error('Not authorized to manage this project');
-
-  const result = await prisma.project.update({
-    where: { id: projectId },
-    data: {
-      members: {
-        disconnect: { id: userId },
-      },
-    },
-    include: { members: true },
+  const project = await assertProjectAdmin(projectId, me.id);
+  // Never remove the creator — they're the implicit super-admin.
+  if (project.userId === userId) {
+    throw new Error('Cannot remove the project creator');
+  }
+  await prisma.projectMember.deleteMany({
+    where: { projectId, userId },
   });
   revalidatePath(`/projects/${projectId}`);
   revalidatePath('/dashboard');
-  return result;
+}
+
+export async function setMemberRole(
+  projectId: string,
+  userId: string,
+  role: 'ADMIN' | 'MEMBER',
+) {
+  const me = await syncUser();
+  if (!me) throw new Error('Unauthorized');
+  const project = await assertProjectAdmin(projectId, me.id);
+  // Creator is always ADMIN — role changes for them are rejected.
+  if (project.userId === userId) {
+    throw new Error("The project creator's role can't be changed");
+  }
+  await prisma.projectMember.update({
+    where: { projectId_userId: { projectId, userId } },
+    data: { role },
+  });
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath('/dashboard');
 }

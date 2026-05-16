@@ -11,7 +11,7 @@ export async function getOverallStats() {
   const projectWhere: Prisma.ProjectWhereInput = {
     OR: [
       { userId: user.id },
-      { members: { some: { id: user.id } } },
+      { members: { some: { userId: user.id } } },
     ],
   };
 
@@ -50,7 +50,7 @@ export async function getProjectStats(projectId: string) {
   const [project, statusCounts, unassignedCount, perMember] = await Promise.all([
     prisma.project.findUnique({
       where: { id: projectId },
-      include: { members: true },
+      include: { members: { include: { user: true } } },
     }),
     prisma.task.groupBy({
       by: ['status'],
@@ -88,10 +88,10 @@ export async function getProjectStats(projectId: string) {
     memberAgg.set(id, entry);
   }
 
-  const userStats = project.members.map((member, idx) => {
+  const userStats = project.members.map(({ user: member }, idx) => {
     const agg = memberAgg.get(member.id) ?? { total: 0, done: 0, inProg: 0, todo: 0 };
-    const completionPct   = agg.total      > 0 ? Math.round((agg.done / agg.total) * 100) : 0;
-    const contributionPct = totalTasks     > 0 ? Math.round((agg.total / totalTasks) * 100) : 0;
+    const completionPct   = agg.total  > 0 ? Math.round((agg.done / agg.total) * 100) : 0;
+    const contributionPct = totalTasks > 0 ? Math.round((agg.total / totalTasks) * 100) : 0;
 
     return {
       id:              member.id,

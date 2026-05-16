@@ -19,7 +19,7 @@ async function userCanAccessList(listId: string, userId: string) {
       project: {
         OR: [
           { userId },
-          { members: { some: { id: userId } } },
+          { members: { some: { userId } } },
         ],
       },
     },
@@ -36,7 +36,7 @@ async function loadTaskForUser(taskId: string, userId: string) {
         project: {
           OR: [
             { userId },
-            { members: { some: { id: userId } } },
+            { members: { some: { userId } } },
           ],
         },
       },
