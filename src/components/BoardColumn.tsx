@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import useSWR from 'swr';
 import { createTask, deleteTask, getTasks, updateTask } from '@/app/actions/taskActions';
 import { useBoardDrag } from './BoardDragContext';
-import { User, Trash2, MoreHorizontal, Plus, ChevronDown } from 'lucide-react';
+import { User, Trash2, MoreHorizontal, Plus, ChevronDown, Clock } from 'lucide-react';
+
 
 type UserProfile = {
   id: string;
@@ -13,17 +14,21 @@ type UserProfile = {
   email: string;
 };
 
-type Task = {
+export type Task = {
   id: string;
   title: string;
+  description?: string | null;
   listId: string;
   userId: string;
   position: number;
   status: 'TODO' | 'IN_PROGRESS' | 'DONE';
+  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+  dueDate?: Date | string | null;
   assigneeId: string | null;
   assignee?: UserProfile | null;
   createdAt: Date;
 };
+
 
 export const LIST_COLORS = [
   { name: 'Default',    value: 'rgba(255, 255, 255, 0.05)' },
@@ -49,6 +54,8 @@ function getColumnTheme(name: string) {
     return { dot: 'bg-green-400', badge: 'bg-green-500/20 text-green-400 border-green-500/30', label: 'Done' };
   return null;
 }
+
+import TaskDetailModal from './TaskDetailModal';
 
 export default function BoardColumn({
   listId,
@@ -93,6 +100,15 @@ export default function BoardColumn({
   const columnRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const { registerDropTarget, startDrag, draggingTaskId, hoveredSlot } = useBoardDrag();
+
+  // Task Detail Modal State
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const openTaskDetail = (task: Task) => {
+    setSelectedTask(task);
+    setIsModalOpen(true);
+  };
 
   useEffect(() => {
     if (adding) inputRef.current?.focus();
@@ -152,8 +168,11 @@ export default function BoardColumn({
       position: tasks.length,
       status: 'TODO',
       assigneeId: null,
+      priority: 'MEDIUM',
+      dueDate: null,
       createdAt: new Date(),
     };
+
 
     mutate([...tasks, optimistic], false);
     setValue('');
@@ -329,47 +348,70 @@ export default function BoardColumn({
                       e.preventDefault();
                       startDrag(t, e, listId);
                     }}
+                    onClick={() => !isTemp && openTaskDetail(t)}
                     className={`bg-white/[0.04] backdrop-blur-md border border-white/5 px-3 py-3 my-1 rounded-xl text-sm text-white flex flex-col gap-2.5 group transition-all duration-200 hover:bg-white/[0.08] hover:border-white/10 hover:shadow-lg ${
-                      isTemp ? 'opacity-50 cursor-default' : 'cursor-grab active:cursor-grabbing'
+                      isTemp ? 'opacity-50 cursor-default' : 'cursor-pointer active:cursor-grabbing'
                     } ${t.status === 'DONE' ? 'opacity-60' : ''}`}
                   >
                     {/* Task title row */}
-                    <div className="flex items-start justify-between gap-2">
-                      <span className={`break-words flex-1 leading-snug transition-all text-sm ${
-                        t.status === 'DONE' ? 'line-through text-gray-500' : 'text-gray-100'
-                      }`}>
-                        {t.title}
-                      </span>
-                      <button
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={() => remove(t.id)}
-                        className="opacity-0 group-hover/card:opacity-100 text-gray-600 hover:text-red-400 transition-all flex-shrink-0 mt-0.5"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <span className={`break-words flex-1 leading-snug transition-all text-sm ${
+                          t.status === 'DONE' ? 'line-through text-gray-500' : 'text-gray-100'
+                        }`}>
+                          {t.title}
+                        </span>
+                        <button
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={() => remove(t.id)}
+                          className="opacity-0 group-hover/card:opacity-100 text-gray-600 hover:text-red-400 transition-all flex-shrink-0 mt-0.5"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center flex-wrap gap-2">
+                        {/* Priority Badge */}
+                        <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter border ${
+                          t.priority === 'URGENT' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                          t.priority === 'HIGH' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
+                          t.priority === 'MEDIUM' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                          'bg-zinc-500/10 text-zinc-400 border-zinc-500/20'
+                        }`}>
+                          {t.priority}
+                        </span>
+
+                        {/* Due Date Indicator */}
+                        {t.dueDate && (
+                          <div className="flex items-center gap-1 text-[9px] text-gray-500 font-medium">
+                            <Clock className="w-3 h-3 text-gray-600" />
+                            <span>{new Date(t.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     {/* Footer: assignee + assign selector */}
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-white/5">
                       {/* Current assignee */}
                       <div className="flex items-center gap-1.5 min-w-0">
                         {t.assignee ? (
                           <div className="flex items-center gap-1.5 bg-white/5 rounded-full pl-0.5 pr-2 py-0.5 border border-white/5">
-                            <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[10px] font-bold text-white overflow-hidden flex-shrink-0">
+                            <div className="w-4 h-4 rounded-full bg-white/10 flex items-center justify-center text-[9px] font-bold text-white overflow-hidden flex-shrink-0">
                               {t.assignee.avatarUrl ? (
                                 <img src={t.assignee.avatarUrl} alt={t.assignee.name || ''} className="w-full h-full object-cover" />
                               ) : (
                                 (t.assignee.name || t.assignee.email).charAt(0).toUpperCase()
                               )}
                             </div>
-                            <span className="text-[10px] text-gray-400 font-medium truncate max-w-[80px]">
+                            <span className="text-[9px] text-gray-400 font-medium truncate max-w-[80px]">
                               {t.assignee.name || 'User'}
                             </span>
                           </div>
                         ) : (
                           <div className="flex items-center gap-1 text-gray-600">
                             <User className="w-3 h-3" />
-                            <span className="text-[10px]">Unassigned</span>
+                            <span className="text-[9px]">Unassigned</span>
                           </div>
                         )}
                       </div>
@@ -460,6 +502,13 @@ export default function BoardColumn({
           )}
         </div>
       )}
+      <TaskDetailModal 
+        task={selectedTask}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onUpdate={() => mutate()}
+        members={members}
+      />
     </div>
   );
 }
