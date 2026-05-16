@@ -5,7 +5,6 @@ import useSWR from 'swr';
 import { getTaskDetails, updateTaskDetails, addComment } from '@/app/actions/taskDetailActions';
 import { X, AlignLeft, MessageSquare, Clock, Plus, Tag, CheckSquare, Paperclip, Activity } from 'lucide-react';
 import { format, isPast } from 'date-fns';
-import { vi } from 'date-fns/locale';
 
 interface TaskDetailModalProps {
   taskId: string;
@@ -127,7 +126,7 @@ export default function TaskDetailModal({ taskId, isOpen, onClose, listName }: T
             <div>
               <h2 className="text-xl font-bold text-white leading-tight">{task.title}</h2>
               <p className="text-sm text-gray-400 mt-1">
-                trong danh sách <span className="underline cursor-pointer">{listName || '...'}</span>
+                in list <span className="underline cursor-pointer">{listName || '...'}</span>
               </p>
             </div>
           </div>
@@ -143,23 +142,23 @@ export default function TaskDetailModal({ taskId, isOpen, onClose, listName }: T
             {/* Quick Actions */}
             <div className="flex flex-wrap gap-2">
               <button className="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-md text-sm text-gray-300 transition-colors">
-                <Plus className="w-4 h-4" /> Thêm
+                <Plus className="w-4 h-4" /> Add
               </button>
               <button className="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-md text-sm text-gray-300 transition-colors">
-                <Tag className="w-4 h-4" /> Nhãn
+                <Tag className="w-4 h-4" /> Labels
               </button>
               <button className="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-md text-sm text-gray-300 transition-colors">
-                <CheckSquare className="w-4 h-4" /> Việc cần làm
+                <CheckSquare className="w-4 h-4" /> Checklist
               </button>
               <button className="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-md text-sm text-gray-300 transition-colors">
-                <Paperclip className="w-4 h-4" /> Đính kèm
+                <Paperclip className="w-4 h-4" /> Attachment
               </button>
             </div>
 
             {/* Meta Row (Members, Due Date) */}
             <div className="flex flex-wrap gap-8">
               <div>
-                <h3 className="text-xs font-semibold text-gray-400 mb-2">Thành viên</h3>
+                <h3 className="text-xs font-semibold text-gray-400 mb-2">Members</h3>
                 <div className="flex items-center gap-1">
                   {task.assignee ? (
                     <div title={task.assignee.name || task.assignee.email} className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold text-white border border-white/20">
@@ -173,16 +172,16 @@ export default function TaskDetailModal({ taskId, isOpen, onClose, listName }: T
               </div>
 
               <div>
-                <h3 className="text-xs font-semibold text-gray-400 mb-2">Ngày hết hạn</h3>
+                <h3 className="text-xs font-semibold text-gray-400 mb-2">Due Date</h3>
                 <div className="flex items-center gap-2">
                   <button onClick={handleSetDueDate} className="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-md text-sm text-gray-300 transition-colors">
                     {task.dueDate ? (
                       <>
-                        {format(new Date(task.dueDate), 'HH:mm dd MMM, yyyy', { locale: vi })}
-                        {isOverdue && <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded ml-2">Quá hạn</span>}
+                        {format(new Date(task.dueDate), 'HH:mm dd MMM, yyyy')}
+                        {isOverdue && <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded ml-2">Overdue</span>}
                       </>
                     ) : (
-                      'Thêm ngày'
+                      'Add date'
                     )}
                   </button>
                 </div>
@@ -194,11 +193,11 @@ export default function TaskDetailModal({ taskId, isOpen, onClose, listName }: T
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3">
                   <AlignLeft className="w-5 h-5 text-gray-400" />
-                  <h3 className="font-semibold text-gray-200">Mô tả</h3>
+                  <h3 className="font-semibold text-gray-200">Description</h3>
                 </div>
                 {!isEditingDesc && task.description && (
                   <button onClick={() => setIsEditingDesc(true)} className="px-3 py-1 bg-white/5 hover:bg-white/10 rounded-md text-xs text-gray-300 transition-colors">
-                    Chỉnh sửa
+                    Edit
                   </button>
                 )}
               </div>
@@ -209,16 +208,16 @@ export default function TaskDetailModal({ taskId, isOpen, onClose, listName }: T
                     <textarea 
                       autoFocus
                       className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-sm text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500 min-h-[100px] resize-y"
-                      placeholder="Thêm mô tả chi tiết hơn..."
+                      placeholder="Add a more detailed description..."
                       value={descValue}
                       onChange={(e) => setDescValue(e.target.value)}
                     />
                     <div className="flex gap-2">
                       <button onClick={handleSaveDesc} className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors">
-                        Lưu
+                        Save
                       </button>
                       <button onClick={() => setIsEditingDesc(false)} className="px-4 py-1.5 hover:bg-white/10 text-gray-300 text-sm rounded-md transition-colors">
-                        Hủy
+                        Cancel
                       </button>
                     </div>
                   </div>
@@ -227,7 +226,7 @@ export default function TaskDetailModal({ taskId, isOpen, onClose, listName }: T
                     onClick={() => setIsEditingDesc(true)}
                     className={`text-sm rounded-lg p-3 cursor-pointer transition-colors ${task.description ? 'text-gray-300' : 'bg-white/5 hover:bg-white/10 text-gray-400'}`}
                   >
-                    {task.description || 'Thêm mô tả chi tiết hơn...'}
+                    {task.description || 'Add a more detailed description...'}
                   </div>
                 )}
               </div>
@@ -239,7 +238,7 @@ export default function TaskDetailModal({ taskId, isOpen, onClose, listName }: T
             <div className="p-5 border-b border-white/5 flex items-center justify-between">
               <div className="flex items-center gap-2 text-gray-200 font-semibold">
                 <MessageSquare className="w-5 h-5" />
-                <span>Nhận xét và hoạt động</span>
+                <span>Comments & Activity</span>
               </div>
             </div>
 
@@ -248,7 +247,7 @@ export default function TaskDetailModal({ taskId, isOpen, onClose, listName }: T
               <form onSubmit={handleAddComment}>
                 <input 
                   type="text"
-                  placeholder="Viết bình luận..."
+                  placeholder="Write a comment..."
                   value={commentValue}
                   onChange={(e) => setCommentValue(e.target.value)}
                   className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all placeholder-gray-500"
@@ -259,7 +258,7 @@ export default function TaskDetailModal({ taskId, isOpen, onClose, listName }: T
             {/* Activity Feed */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {task.activities.length === 0 ? (
-                <div className="text-center text-gray-500 text-sm mt-10">Chưa có hoạt động nào</div>
+                <div className="text-center text-gray-500 text-sm mt-10">No activity yet</div>
               ) : (
                 task.activities.map((act: any) => (
                   <div key={act.id} className="flex gap-3">
@@ -276,7 +275,7 @@ export default function TaskDetailModal({ taskId, isOpen, onClose, listName }: T
                         )}
                       </p>
                       <p className="text-xs text-blue-400 mt-1">
-                        {format(new Date(act.createdAt), 'HH:mm dd MMM, yyyy', { locale: vi })}
+                        {format(new Date(act.createdAt), 'HH:mm dd MMM, yyyy')}
                       </p>
                     </div>
                   </div>
