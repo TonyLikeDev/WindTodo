@@ -3,8 +3,20 @@
 import { useEffect, useState } from 'react';
 import { Layers, CheckCircle, Clock, Calendar, ArrowUpRight, TrendingUp } from 'lucide-react';
 
-export default function WelcomeWidget({ userName, stats }: { userName: string, stats: any }) {
-  const [greeting, setGreeting] = useState('Good Morning');
+interface DashboardStats {
+  totalTasks: number;
+  completedTasks: number;
+  totalProjects: number;
+  todoTasks: number;
+}
+
+export default function WelcomeWidget({ userName, stats }: { userName: string, stats: DashboardStats }) {
+  const [greeting] = useState(() => {
+    const hours = new Date().getHours();
+    if (hours >= 12 && hours < 17) return 'Good Afternoon';
+    if (hours >= 17) return 'Good Evening';
+    return 'Good Morning';
+  });
   const [time, setTime] = useState('');
   
   const completionRate = stats?.totalTasks > 0 
@@ -12,12 +24,8 @@ export default function WelcomeWidget({ userName, stats }: { userName: string, s
     : 0;
 
   useEffect(() => {
-    const hours = new Date().getHours();
-    if (hours >= 12 && hours < 17) setGreeting('Good Afternoon');
-    else if (hours >= 17) setGreeting('Good Evening');
-    else setGreeting('Good Morning');
-
     const updateTime = () => {
+
       setTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }));
     };
     updateTime();
@@ -104,7 +112,8 @@ export default function WelcomeWidget({ userName, stats }: { userName: string, s
   );
 }
 
-export function OverviewKPI({ stats }: { stats: any }) {
+export function OverviewKPI({ stats }: { stats: DashboardStats }) {
+
   const items = [
     { 
       label: 'Active Projects', 

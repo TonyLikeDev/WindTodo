@@ -23,7 +23,7 @@ interface UserStat {
   id: string;
   name: string;
   email: string;
-  avatarUrl?: string;
+  avatarUrl?: string | null;
   todo: number;
   inProgress: number;
   completed: number;
@@ -31,6 +31,7 @@ interface UserStat {
   completionPct: number;
   contributionPct: number;
 }
+
 
 interface ProjectStat {
   id: string;
@@ -231,9 +232,10 @@ export default function StatsDashboard() {
     );
   }
 
-  const overallPct = overall?.totalTasks > 0
+  const overallPct = (overall && overall.totalTasks > 0)
     ? Math.round((overall.completedTasks / overall.totalTasks) * 100)
     : 0;
+
 
   const pieData = overall ? [
     { name: 'Done',        value: overall.completedTasks,  fill: STATUS_COLORS.done },
@@ -269,7 +271,8 @@ export default function StatsDashboard() {
             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Overall Tasks</h3>
             <PieChartIcon className="w-4 h-4 text-gray-600" />
           </div>
-          {overall?.totalTasks > 0 ? (
+          {(overall && overall.totalTasks > 0) ? (
+
             <div className="flex items-center gap-4 flex-1">
               <div className="relative w-28 h-28 flex-shrink-0">
                 <ResponsiveContainer width="100%" height="100%">

@@ -103,6 +103,7 @@ export async function getProjectStats(projectId: string) {
   userStats.sort((a, b) => b.completionPct - a.completionPct || b.total - a.total);
 
   return {
+    id: projectId,
     projectName: project.name,
     totalTasks,
     completedTasks,
@@ -112,3 +113,4 @@ export async function getProjectStats(projectId: string) {
     userStats,
   };
 }
+

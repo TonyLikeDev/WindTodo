@@ -144,7 +144,7 @@ export default function BoardColumn({
       setValue('');
       return;
     }
-    const optimistic: any = {
+    const optimistic: Task = {
       id: `temp-${Date.now()}`,
       title: trimmed,
       listId,
@@ -154,6 +154,7 @@ export default function BoardColumn({
       assigneeId: null,
       createdAt: new Date(),
     };
+
     mutate([...tasks, optimistic], false);
     setValue('');
     await createTask(trimmed, listId);
