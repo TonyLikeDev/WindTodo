@@ -15,6 +15,16 @@ export async function getTaskDetails(taskId: string) {
     include: {
       creator: true,
       assignee: true,
+      list: {
+        include: {
+          project: {
+            include: {
+              members: true,
+              creator: true
+            }
+          }
+        }
+      },
       activities: {
         include: { user: true },
         orderBy: { createdAt: 'desc' }
@@ -25,7 +35,7 @@ export async function getTaskDetails(taskId: string) {
   return task
 }
 
-export async function updateTaskDetails(taskId: string, data: { description?: string, dueDate?: Date | null }) {
+export async function updateTaskDetails(taskId: string, data: { description?: string, dueDate?: Date | null, startDate?: Date | null, reminder?: number | null, assigneeId?: string | null }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Unauthorized')
@@ -37,8 +47,9 @@ export async function updateTaskDetails(taskId: string, data: { description?: st
 
   // Optional: create activity log
   let content = ''
-  if (data.description !== undefined) content = 'đã cập nhật mô tả thẻ'
-  else if (data.dueDate !== undefined) content = 'đã thay đổi ngày hết hạn'
+  if (data.description !== undefined) content = 'updated the description'
+  else if (data.dueDate !== undefined || data.startDate !== undefined) content = 'updated dates'
+  else if (data.assigneeId !== undefined) content = data.assigneeId ? 'assigned a member' : 'removed the assignee'
 
   if (content) {
     await prisma.taskActivity.create({

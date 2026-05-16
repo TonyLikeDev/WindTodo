@@ -11,21 +11,51 @@ interface TaskDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   listName?: string;
+  initialData?: any;
 }
 
-export default function TaskDetailModal({ taskId, isOpen, onClose, listName }: TaskDetailModalProps) {
-  const { data: task, mutate, isLoading } = useSWR(
+export default function TaskDetailModal({ taskId, isOpen, onClose, listName, initialData }: TaskDetailModalProps) {
+  const { data: task, mutate, isLoading, isValidating } = useSWR(
     isOpen ? `task-${taskId}` : null,
-    () => getTaskDetails(taskId)
+    () => getTaskDetails(taskId),
+    { fallbackData: initialData }
   );
 
   const [isEditingDesc, setIsEditingDesc] = useState(false);
   const [descValue, setDescValue] = useState('');
   const [commentValue, setCommentValue] = useState('');
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [isAssigneePickerOpen, setIsAssigneePickerOpen] = useState(false);
+  const [startDateStr, setStartDateStr] = useState('');
+  const [dueDateStr, setDueDateStr] = useState('');
+  const [reminder, setReminder] = useState<number | null>(null);
+
+  const projectMembers = React.useMemo(() => {
+    if (!task || !task.list?.project) return [];
+    const members = [...(task.list.project.members || [])];
+    if (task.list.project.creator && !members.find((m: any) => m.id === task.list.project.creator.id)) {
+      members.push(task.list.project.creator);
+    }
+    return members;
+  }, [task]);
+
+  const toggleDatePicker = () => {
+    setIsDatePickerOpen(!isDatePickerOpen);
+    setIsAssigneePickerOpen(false);
+  };
+
+  const toggleAssigneePicker = () => {
+    setIsAssigneePickerOpen(!isAssigneePickerOpen);
+    setIsDatePickerOpen(false);
+  };
 
   useEffect(() => {
     if (task) {
       setDescValue(task.description || '');
+      // Format correctly to YYYY-MM-DDThh:mm for datetime-local
+      setStartDateStr(task.startDate ? new Date(new Date(task.startDate).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '');
+      setDueDateStr(task.dueDate ? new Date(new Date(task.dueDate).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '');
+      setReminder(task.reminder || null);
     }
   }, [task]);
 
@@ -46,18 +76,36 @@ export default function TaskDetailModal({ taskId, isOpen, onClose, listName }: T
     mutate();
   };
 
-  const handleSetDueDate = async () => {
-    // Just a placeholder toggling 1 day ahead
-    const date = new Date();
-    date.setDate(date.getDate() + 1);
-    await updateTaskDetails(taskId, { dueDate: date });
+  const handleSaveDates = async () => {
+    await updateTaskDetails(taskId, { 
+      startDate: startDateStr ? new Date(startDateStr) : null,
+      dueDate: dueDateStr ? new Date(dueDateStr) : null,
+      reminder 
+    });
     mutate();
+    setIsDatePickerOpen(false);
   };
 
-  if (isLoading || !task) {
+  const handleRemoveDates = async () => {
+    setStartDateStr('');
+    setDueDateStr('');
+    setReminder(null);
+    await updateTaskDetails(taskId, { startDate: null, dueDate: null, reminder: null });
+    mutate();
+    setIsDatePickerOpen(false);
+  };
+
+  const handleAssignMember = async (userId: string | null) => {
+    await updateTaskDetails(taskId, { assigneeId: userId });
+    mutate();
+    setIsAssigneePickerOpen(false);
+  };
+
+  if (!task) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
         <div className="bg-[#1f1f1f] w-full max-w-4xl rounded-xl shadow-2xl overflow-hidden flex flex-col h-[600px] max-h-[90vh] animate-pulse">
+          {/* Skeleton Header */}
           <div className="flex items-start justify-between p-5 border-b border-white/5">
             <div className="flex gap-3 w-full">
               <div className="w-6 h-6 bg-white/10 rounded mt-1"></div>
@@ -67,6 +115,7 @@ export default function TaskDetailModal({ taskId, isOpen, onClose, listName }: T
               </div>
             </div>
           </div>
+          {/* Skeleton Body */}
           <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
             <div className="flex-1 p-6 border-r border-white/5 space-y-8">
               <div className="flex gap-2">
@@ -159,31 +208,123 @@ export default function TaskDetailModal({ taskId, isOpen, onClose, listName }: T
             <div className="flex flex-wrap gap-8">
               <div>
                 <h3 className="text-xs font-semibold text-gray-400 mb-2">Members</h3>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 relative">
                   {task.assignee ? (
                     <div title={task.assignee.name || task.assignee.email} className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold text-white border border-white/20">
                       {(task.assignee.name || task.assignee.email).substring(0, 2).toUpperCase()}
                     </div>
                   ) : null}
-                  <button className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-gray-300 transition-colors">
+                  <button onClick={toggleAssigneePicker} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-gray-300 transition-colors">
                     <Plus className="w-4 h-4" />
                   </button>
+                  
+                  {isAssigneePickerOpen && (
+                    <div className="absolute top-full left-0 mt-2 w-64 bg-[#282828] border border-white/10 rounded-xl p-3 shadow-2xl z-50">
+                      <div className="flex justify-between items-center mb-3">
+                        <h4 className="text-white font-semibold text-sm">Assign Member</h4>
+                        <button onClick={() => setIsAssigneePickerOpen(false)} className="text-gray-400 hover:text-white">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <div className="space-y-1 max-h-60 overflow-y-auto pr-1">
+                        <button 
+                          onClick={() => handleAssignMember(null)}
+                          className="w-full flex items-center gap-3 px-3 py-2 hover:bg-white/5 rounded-lg text-left transition-colors"
+                        >
+                          <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-gray-400">
+                            <X className="w-4 h-4" />
+                          </div>
+                          <span className="text-sm text-gray-300">Unassigned</span>
+                        </button>
+                        {projectMembers.map((member: any) => (
+                          <button 
+                            key={member.id}
+                            onClick={() => handleAssignMember(member.id)}
+                            className="w-full flex items-center gap-3 px-3 py-2 hover:bg-white/5 rounded-lg text-left transition-colors"
+                          >
+                            <div className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold text-white">
+                              {(member.name || member.email).substring(0, 2).toUpperCase()}
+                            </div>
+                            <span className="text-sm text-gray-200 truncate flex-1">{member.name || member.email}</span>
+                            {task.assignee?.id === member.id && <CheckSquare className="w-4 h-4 text-blue-500" />}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
               <div>
-                <h3 className="text-xs font-semibold text-gray-400 mb-2">Due Date</h3>
-                <div className="flex items-center gap-2">
-                  <button onClick={handleSetDueDate} className="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-md text-sm text-gray-300 transition-colors">
-                    {task.dueDate ? (
-                      <>
-                        {format(new Date(task.dueDate), 'HH:mm dd MMM, yyyy')}
-                        {isOverdue && <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded ml-2">Overdue</span>}
-                      </>
+                <h3 className="text-xs font-semibold text-gray-400 mb-2">Dates</h3>
+                <div className="flex items-center gap-2 relative">
+                  <button onClick={toggleDatePicker} className="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-md text-sm text-gray-300 transition-colors">
+                    {task.startDate || task.dueDate ? (
+                      <div className="flex flex-col items-start">
+                        {task.startDate && <span className="text-xs text-gray-500">Start: {format(new Date(task.startDate), 'HH:mm dd MMM, yyyy')}</span>}
+                        {task.dueDate && (
+                          <span className="flex items-center gap-2">
+                            <span>Due: {format(new Date(task.dueDate), 'HH:mm dd MMM, yyyy')}</span>
+                            {isOverdue && <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded">Overdue</span>}
+                          </span>
+                        )}
+                      </div>
                     ) : (
                       'Add date'
                     )}
                   </button>
+
+                  {isDatePickerOpen && (
+                    <div className="absolute top-full left-0 mt-2 w-80 bg-[#282828] border border-white/10 rounded-xl p-4 shadow-2xl z-50">
+                      <div className="flex justify-between items-center mb-4">
+                        <h4 className="text-white font-semibold">Schedule</h4>
+                        <button onClick={() => setIsDatePickerOpen(false)} className="text-gray-400 hover:text-white">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-xs text-gray-400 block mb-1">Start date</label>
+                          <input 
+                            type="datetime-local" 
+                            value={startDateStr} 
+                            onChange={e => setStartDateStr(e.target.value)} 
+                            className="w-full bg-black/30 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500" 
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-400 block mb-1">Due date</label>
+                          <input 
+                            type="datetime-local" 
+                            value={dueDateStr} 
+                            onChange={e => setDueDateStr(e.target.value)} 
+                            className="w-full bg-black/30 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500" 
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-400 block mb-1">Reminder</label>
+                          <select 
+                            value={reminder || ''} 
+                            onChange={e => setReminder(e.target.value ? Number(e.target.value) : null)} 
+                            className="w-full bg-black/30 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 [&>option]:bg-[#282828]"
+                          >
+                            <option value="">None</option>
+                            <option value="15">15 minutes</option>
+                            <option value="30">30 minutes</option>
+                            <option value="60">1 hour</option>
+                            <option value="120">2 hours</option>
+                            <option value="1440">1 day</option>
+                            <option value="10080">1 week</option>
+                            <option value="43200">1 month</option>
+                          </select>
+                        </div>
+                        <div className="flex gap-2 pt-2">
+                          <button onClick={handleSaveDates} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 rounded-md transition-colors">Save</button>
+                          <button onClick={handleRemoveDates} className="flex-1 bg-white/5 hover:bg-white/10 text-gray-300 text-sm py-2 rounded-md transition-colors">Remove</button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -194,6 +335,7 @@ export default function TaskDetailModal({ taskId, isOpen, onClose, listName }: T
                 <div className="flex items-center gap-3">
                   <AlignLeft className="w-5 h-5 text-gray-400" />
                   <h3 className="font-semibold text-gray-200">Description</h3>
+                  {isValidating && <div className="w-3 h-3 border-2 border-[#f26522] border-t-transparent rounded-full animate-spin ml-2" title="Syncing..." />}
                 </div>
                 {!isEditingDesc && task.description && (
                   <button onClick={() => setIsEditingDesc(true)} className="px-3 py-1 bg-white/5 hover:bg-white/10 rounded-md text-xs text-gray-300 transition-colors">
@@ -257,7 +399,11 @@ export default function TaskDetailModal({ taskId, isOpen, onClose, listName }: T
 
             {/* Activity Feed */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {task.activities.length === 0 ? (
+              {!task.activities ? (
+                <div className="flex justify-center mt-10">
+                  <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              ) : task.activities.length === 0 ? (
                 <div className="text-center text-gray-500 text-sm mt-10">No activity yet</div>
               ) : (
                 task.activities.map((act: any) => (

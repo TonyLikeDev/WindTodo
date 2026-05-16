@@ -378,23 +378,7 @@ export default function BoardColumn({
                         )}
                       </div>
 
-                      {/* Assign-to selector (visible on hover) */}
-                      {members.length > 0 && (
-                        <div className="relative flex-shrink-0">
-                          <select
-                            onPointerDown={(e) => e.stopPropagation()}
-                            value={t.assigneeId || ''}
-                            onChange={(e) => assignTask(t.id, e.target.value || null)}
-                            className="opacity-0 group-hover/card:opacity-100 text-[9px] bg-black/50 border border-white/10 rounded-md py-0.5 pl-1.5 pr-5 text-gray-300 focus:outline-none hover:border-white/30 transition-all cursor-pointer appearance-none"
-                          >
-                            <option value="">Assign…</option>
-                            {members.map(m => (
-                              <option key={m.id} value={m.id}>{m.name || m.email}</option>
-                            ))}
-                          </select>
-                          <ChevronDown className="absolute right-1 top-1/2 -translate-y-1/2 w-2.5 h-2.5 text-gray-500 pointer-events-none opacity-0 group-hover/card:opacity-100 transition-opacity" />
-                        </div>
-                      )}
+
                     </div>
                   </div>
                 </div>
@@ -471,6 +455,7 @@ export default function BoardColumn({
           isOpen={!!selectedTaskId}
           onClose={() => setSelectedTaskId(null)}
           listName={title}
+          initialData={tasks.find(t => t.id === selectedTaskId)}
         />
       )}
     </div>

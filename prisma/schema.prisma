@@ -41,6 +41,8 @@ model Task {
   status      TaskStatus @default(TODO)
   description String?    @db.Text
   dueDate     DateTime?
+  startDate   DateTime?
+  reminder    Int?       // minutes before due date
   activities  TaskActivity[]
   createdAt   DateTime   @default(now())
 
