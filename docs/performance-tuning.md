@@ -27,7 +27,7 @@ queries; keep the direct endpoint for migrations only.
 
 ```bash
 # App queries — transaction-mode pooler. <region> matches your Supabase project.
-DATABASE_URL="postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1"
+DATABASE_URL="postgresql://postgres.<project-ref>:<password>@aws-1-<region>.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1"
 
 # Migrations only — direct, session-mode connection.
 DIRECT_URL="postgresql://postgres:<password>@db.<project-ref>.supabase.co:5432/postgres"
@@ -52,7 +52,7 @@ datasource db {
 
 > Find the region under Supabase Dashboard → Project Settings →
 > Database → "Connection string". The pooler hostname tells you the
-> region (e.g. `aws-0-ap-southeast-1.pooler.supabase.com`).
+> region (e.g. `aws-1-ap-southeast-1.pooler.supabase.com`).
 
 ## 2. Co‑locate the Vercel function with the Supabase region
 
